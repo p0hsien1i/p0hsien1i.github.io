@@ -1,0 +1,22 @@
+---
+// Minimal Phase-1 shell — expanded in Phase 2 (nav/footer/dark mode/fonts/GA).
+interface Props {
+  title: string;
+  description?: string;
+}
+const { title, description = '阿波的隨筆天地 — 吃喝玩樂、投資與抒發心情。' } = Astro.props;
+---
+
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+  </head>
+  <body>
+    <slot />
+  </body>
+</html>

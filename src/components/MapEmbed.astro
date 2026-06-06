@@ -1,0 +1,48 @@
+---
+interface Props {
+  src: string;
+  label?: string;
+}
+const { src, label = "地點" } = Astro.props;
+---
+
+<figure class="mapembed card">
+  <figcaption class="map-head"><span aria-hidden="true">📍</span> {label}</figcaption>
+  <div class="map-frame">
+    <iframe
+      src={src}
+      title={`地圖：${label}`}
+      loading="lazy"
+      referrerpolicy="no-referrer-when-downgrade"
+      allowfullscreen></iframe>
+  </div>
+</figure>
+
+<style>
+  .mapembed {
+    overflow: hidden;
+    margin: var(--space-5) 0;
+  }
+  .map-head {
+    padding: var(--space-3) var(--space-4);
+    background: var(--rice-100);
+    color: var(--rice-800);
+    font-weight: 600;
+    font-size: 0.9rem;
+  }
+  :root[data-theme="dark"] .map-head {
+    background: rgba(255, 210, 76, 0.12);
+    color: var(--rice-300);
+  }
+  .map-frame {
+    position: relative;
+    aspect-ratio: 16 / 10;
+  }
+  .map-frame iframe {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+  }
+</style>

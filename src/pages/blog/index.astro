@@ -1,24 +1,69 @@
 ---
-import { getCollection } from 'astro:content';
-import BaseLayout from '../../layouts/BaseLayout.astro';
+import { getCollection } from "astro:content";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import Nav from "../../components/Nav.astro";
+import Footer from "../../components/Footer.astro";
+import PostCard from "../../components/PostCard.astro";
+import CategoryFilter from "../../components/islands/CategoryFilter.astro";
+import { categoryOrder } from "../../data/categories";
 
-const posts = (await getCollection('blog'))
+const posts = (await getCollection("blog"))
   .filter((p) => !p.data.draft)
   .sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf());
+const present = categoryOrder.filter((k) => posts.some((p) => p.data.category === k));
 ---
 
-<BaseLayout title="部落格 — 阿波的三角飯糰">
-  <main>
-    <h1>部落格</h1>
-    <ul>
+<BaseLayout title="部落格">
+  <Nav />
+  <main class="container blogmain">
+    <header class="blog-head">
+      <h1>部落格</h1>
+      <p>食記、影評、心得、隨筆與投資紀錄 —— 阿波的隨筆天地。</p>
+    </header>
+
+    <CategoryFilter cats={present} />
+
+    <div class="card-grid" id="post-grid">
       {
         posts.map((p) => (
-          <li>
-            <a href={`/blog/${p.id}/`}>{p.data.title}</a>
-            <small> · {p.data.pubDate.toISOString().slice(0, 10)}</small>
-          </li>
+          <div class="post-cell" data-cat={p.data.category}>
+            <PostCard post={p} />
+          </div>
         ))
       }
-    </ul>
+    </div>
+    {posts.length === 0 && <p class="muted">文章陸續搬遷上架中。</p>}
   </main>
+  <Footer />
 </BaseLayout>
+
+<style>
+  .blogmain {
+    padding-block: var(--space-7);
+  }
+  .blog-head {
+    margin-bottom: var(--space-5);
+  }
+  .blog-head p {
+    color: var(--text-muted);
+    margin-top: var(--space-2);
+  }
+  .card-grid {
+    display: grid;
+    gap: var(--space-5);
+    grid-template-columns: 1fr;
+  }
+  @media (min-width: 640px) {
+    .card-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+  @media (min-width: 1024px) {
+    .card-grid {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+  .muted {
+    color: var(--text-muted);
+  }
+</style>

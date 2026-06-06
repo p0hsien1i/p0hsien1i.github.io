@@ -1,0 +1,123 @@
+---
+// 5-axis food rating, driven by numbers (0–5, .5 steps). Replaces the old star PNGs.
+interface Ratings {
+  transport: number;
+  ambience: number;
+  service: number;
+  taste: number;
+  price: number;
+}
+interface Props {
+  ratings: Ratings;
+}
+const { ratings } = Astro.props;
+const rows = [
+  { label: "交通", v: ratings.transport },
+  { label: "環境", v: ratings.ambience },
+  { label: "服務", v: ratings.service },
+  { label: "美味", v: ratings.taste },
+  { label: "價格", v: ratings.price },
+];
+const avg = rows.reduce((s, r) => s + r.v, 0) / rows.length;
+const pct = (v: number) => `${Math.max(0, Math.min(5, v)) * 20}%`;
+---
+
+<div class="rating">
+  <div class="rating-overall">
+    <span class="ro-num">{avg.toFixed(1)}</span>
+    <span class="ro-cap">綜合 / 5.0</span>
+  </div>
+  <div class="rating-rows">
+    {
+      rows.map((r) => (
+        <div class="rrow" role="img" aria-label={`${r.label} ${r.v.toFixed(1)} / 5`}>
+          <span class="rlabel">{r.label}</span>
+          <span class="rtrack" aria-hidden="true">
+            <span class="rempty">▲▲▲▲▲</span>
+            <span class="rfill" style={`width:${pct(r.v)}`}>▲▲▲▲▲</span>
+          </span>
+          <span class="rval">{r.v.toFixed(1)}</span>
+        </div>
+      ))
+    }
+  </div>
+</div>
+
+<style>
+  .rating {
+    display: flex;
+    gap: var(--space-5);
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .rating-overall {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-width: 96px;
+    padding: var(--space-3) var(--space-4);
+    border-radius: var(--radius-md);
+    background: var(--rice-100);
+    color: var(--rice-800);
+  }
+  :root[data-theme="dark"] .rating-overall {
+    background: rgba(255, 210, 76, 0.14);
+    color: var(--rice-300);
+  }
+  .ro-num {
+    font-family: var(--font-mono);
+    font-size: 2rem;
+    font-weight: 700;
+    line-height: 1;
+  }
+  .ro-cap {
+    font-size: 0.75rem;
+    margin-top: 4px;
+  }
+  .rating-rows {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    flex: 1;
+    min-width: 220px;
+  }
+  .rrow {
+    display: grid;
+    grid-template-columns: 3.2em 1fr 2.4em;
+    align-items: center;
+    gap: var(--space-3);
+  }
+  .rlabel {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+  }
+  .rtrack {
+    position: relative;
+    display: inline-block;
+    line-height: 1;
+    letter-spacing: 0.18em;
+    font-size: 1rem;
+    white-space: nowrap;
+  }
+  .rempty {
+    color: var(--ink-200);
+  }
+  :root[data-theme="dark"] .rempty {
+    color: var(--border-strong);
+  }
+  .rfill {
+    position: absolute;
+    left: 0;
+    top: 0;
+    overflow: hidden;
+    color: var(--rice-400);
+    white-space: nowrap;
+  }
+  .rval {
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    text-align: right;
+  }
+</style>

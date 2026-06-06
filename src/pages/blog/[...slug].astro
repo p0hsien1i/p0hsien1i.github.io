@@ -1,9 +1,11 @@
 ---
-import { getCollection, render } from 'astro:content';
-import BaseLayout from '../../layouts/BaseLayout.astro';
+import { getCollection, render } from "astro:content";
+import PostLayout from "../../layouts/PostLayout.astro";
+import YouTubeEmbed from "../../components/YouTubeEmbed.astro";
+import MapEmbed from "../../components/MapEmbed.astro";
 
 export async function getStaticPaths() {
-  const posts = await getCollection('blog');
+  const posts = await getCollection("blog");
   return posts.map((post) => ({ params: { slug: post.id }, props: { post } }));
 }
 
@@ -11,10 +13,6 @@ const { post } = Astro.props;
 const { Content } = await render(post);
 ---
 
-<BaseLayout title={post.data.title} description={post.data.description}>
-  <article>
-    <h1>{post.data.title}</h1>
-    <p><small>{post.data.pubDate.toISOString().slice(0, 10)} · {post.data.authors.join(' / ')}</small></p>
-    <Content />
-  </article>
-</BaseLayout>
+<PostLayout post={post}>
+  <Content components={{ YouTubeEmbed, MapEmbed }} />
+</PostLayout>

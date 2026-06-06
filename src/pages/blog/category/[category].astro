@@ -1,0 +1,82 @@
+---
+import { getCollection } from "astro:content";
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import Nav from "../../../components/Nav.astro";
+import Footer from "../../../components/Footer.astro";
+import PostCard from "../../../components/PostCard.astro";
+import { categories, categoryOrder, type CategoryKey } from "../../../data/categories";
+
+export async function getStaticPaths() {
+  return categoryOrder.map((k) => ({ params: { category: k } }));
+}
+
+const { category } = Astro.params;
+const cat = categories[category as CategoryKey];
+const posts = (await getCollection("blog"))
+  .filter((p) => !p.data.draft && p.data.category === category)
+  .sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf());
+---
+
+<BaseLayout title={`${cat.label} — 部落格`}>
+  <Nav />
+  <main class="container blogmain">
+    <a class="back" href="/blog">← 所有文章</a>
+    <header class="blog-head">
+      <h1>{cat.label}</h1>
+      <p>{posts.length} 篇</p>
+    </header>
+
+    {
+      posts.length > 0 ? (
+        <div class="card-grid">
+          {posts.map((p) => (
+            <PostCard post={p} />
+          ))}
+        </div>
+      ) : (
+        <p class="muted">這個分類還沒有文章,敬請期待。</p>
+      )
+    }
+  </main>
+  <Footer />
+</BaseLayout>
+
+<style>
+  .blogmain {
+    padding-block: var(--space-7);
+  }
+  .back {
+    color: var(--accent-text);
+    font-weight: 600;
+    font-size: 0.9rem;
+    text-decoration: none;
+  }
+  .back:hover {
+    text-decoration: underline;
+  }
+  .blog-head {
+    margin: var(--space-3) 0 var(--space-5);
+  }
+  .blog-head p {
+    color: var(--text-muted);
+    margin-top: var(--space-2);
+  }
+  .card-grid {
+    display: grid;
+    gap: var(--space-5);
+    grid-template-columns: 1fr;
+  }
+  @media (min-width: 640px) {
+    .card-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+  @media (min-width: 1024px) {
+    .card-grid {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+  .muted {
+    color: var(--text-muted);
+  }
+</style>

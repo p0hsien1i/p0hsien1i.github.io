@@ -1,0 +1,80 @@
+---
+import BaseLayout from "./BaseLayout.astro";
+import Nav from "../components/Nav.astro";
+import Footer from "../components/Footer.astro";
+import CategoryBadge from "../components/CategoryBadge.astro";
+import FoodReviewMeta from "../components/FoodReviewMeta.astro";
+import { Image } from "astro:assets";
+import type { CollectionEntry } from "astro:content";
+
+interface Props {
+  post: CollectionEntry<"blog">;
+}
+const { post } = Astro.props;
+const d = post.data;
+const date = d.pubDate.toISOString().slice(0, 10);
+---
+
+<BaseLayout title={d.title} description={d.description}>
+  <Nav />
+  <main class="container container-prose post">
+    <a class="back" href="/blog">← 回部落格</a>
+    <header class="post-head">
+      <CategoryBadge category={d.category} />
+      <h1>{d.title}</h1>
+      <p class="post-meta">
+        <time datetime={date}>{date}</time> · {d.authors.join(" / ")}
+      </p>
+    </header>
+
+    {d.cover && <Image class="post-cover" src={d.cover} alt={d.title} />}
+    {d.category === "food" && d.foodReview && <FoodReviewMeta foodReview={d.foodReview} />}
+
+    <article class="prose"><slot /></article>
+
+    <div class="post-foot">
+      <a class="back" href="/blog">← 回部落格</a>
+    </div>
+  </main>
+  <Footer />
+</BaseLayout>
+
+<style>
+  .post {
+    padding-block: var(--space-6) var(--space-8);
+  }
+  .back {
+    display: inline-block;
+    color: var(--accent-text);
+    font-weight: 600;
+    font-size: 0.9rem;
+    text-decoration: none;
+  }
+  .back:hover {
+    text-decoration: underline;
+  }
+  .post-head {
+    margin: var(--space-4) 0 var(--space-5);
+  }
+  .post-head h1 {
+    margin-top: var(--space-3);
+  }
+  .post-meta {
+    margin-top: var(--space-2);
+    color: var(--text-faint);
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+  }
+  .post-cover {
+    width: 100%;
+    height: auto;
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-2);
+    margin-bottom: var(--space-5);
+  }
+  .post-foot {
+    margin-top: var(--space-7);
+    padding-top: var(--space-5);
+    border-top: 1px solid var(--border);
+  }
+</style>

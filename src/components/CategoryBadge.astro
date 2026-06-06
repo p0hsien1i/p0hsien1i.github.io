@@ -1,0 +1,10 @@
+---
+import { categories, type CategoryKey } from "../data/categories";
+interface Props {
+  category: CategoryKey;
+}
+const { category } = Astro.props;
+const c = categories[category];
+---
+
+<span class="chip" style={`background:${c.bg};color:${c.fg}`}>{c.label}</span>

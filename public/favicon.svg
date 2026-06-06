@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="阿波三角飯糰">
+  <path d="M32 7c2.2 0 4.2 1.2 5.3 3.1l19.4 35.2c2.2 4-0.7 8.9-5.3 8.9H14.6c-4.6 0-7.5-4.9-5.3-8.9L28.7 10.1C29.8 8.2 31.8 7 32 7Z" fill="#FFD24C" stroke="#F7B733" stroke-width="2" stroke-linejoin="round"/>
+  <rect x="21" y="39" width="22" height="15" rx="3.5" fill="#1F2A1E"/>
+  <circle cx="27" cy="30" r="1.6" fill="#5C3A06"/>
+  <circle cx="37" cy="33" r="1.6" fill="#5C3A06"/>
+</svg>

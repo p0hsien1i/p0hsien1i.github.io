@@ -1,10 +1,25 @@
 ---
-// Minimal Phase-1 shell — expanded in Phase 2 (nav/footer/dark mode/fonts/GA).
+import "../styles/global.css";
+
 interface Props {
   title: string;
   description?: string;
+  ogImage?: string;
 }
-const { title, description = '阿波的隨筆天地 — 吃喝玩樂、投資與抒發心情。' } = Astro.props;
+const {
+  title,
+  description = "阿波的隨筆天地 — 吃喝玩樂、投資與抒發心情。",
+  ogImage = "/og-default.png",
+} = Astro.props;
+
+const siteName = "阿波的三角飯糰";
+const fullTitle = title === siteName ? title : `${title} ｜ ${siteName}`;
+const canonical = new URL(Astro.url.pathname, Astro.site).href;
+const ogImageUrl = new URL(ogImage, Astro.site).href;
+
+const GA_ID = "G-6RLM1NH0BQ";
+const enableGA = import.meta.env.PROD;
+const gaInline = `window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','${GA_ID}');`;
 ---
 
 <!doctype html>
@@ -12,9 +27,52 @@ const { title, description = '阿波的隨筆天地 — 吃喝玩樂、投資與
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#ffd24c" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-    <title>{title}</title>
+    <link rel="canonical" href={canonical} />
+
+    <title>{fullTitle}</title>
     <meta name="description" content={description} />
+
+    <!-- Open Graph / Twitter -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content={siteName} />
+    <meta property="og:title" content={fullTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={ogImageUrl} />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Klee+One:wght@400;600&family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@400;600&family=IBM+Plex+Mono:wght@400;500&display=swap"
+    />
+
+    <!-- No-flash theme init (runs before paint) -->
+    <script is:inline>
+      (function () {
+        try {
+          var t = localStorage.getItem("theme");
+          var d = t || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+          document.documentElement.dataset.theme = d;
+        } catch (e) {
+          document.documentElement.dataset.theme = "light";
+        }
+      })();
+    </script>
+
+    <!-- Google Analytics (production only) -->
+    {
+      enableGA && (
+        <Fragment>
+          <script async src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`} />
+          <script is:inline set:html={gaInline} />
+        </Fragment>
+      )
+    }
   </head>
   <body>
     <slot />

@@ -15,5 +15,8 @@
     "@astrojs/sitemap": "^3.7.3",
     "astro": "^6.4.4",
     "sharp": "^0.34.5"
+  },
+  "devDependencies": {
+    "playwright": "^1.60.0"
   }
 }

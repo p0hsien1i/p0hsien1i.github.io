@@ -1,0 +1,147 @@
+---
+import Logo from "./Logo.astro";
+import { site } from "../data/site";
+---
+
+<section id="top" class="hero">
+  <svg class="bg-triangle" viewBox="0 0 64 64" aria-hidden="true" focusable="false">
+    <path
+      d="M32 7c2.2 0 4.2 1.2 5.3 3.1l19.4 35.2c2.2 4-0.7 8.9-5.3 8.9H14.6c-4.6 0-7.5-4.9-5.3-8.9L28.7 10.1C29.8 8.2 31.8 7 32 7Z"
+    ></path>
+  </svg>
+
+  <div class="container hero-inner">
+    <div class="hero-logo logo-hover"><Logo size={132} /></div>
+    <h1 class="hero-title">{site.name}</h1>
+    <p class="hero-name">{site.author} ｜ {site.authorAka}</p>
+    <div class="roles">
+      {site.roles.map((r) => <span class="role-chip">{r}</span>)}
+    </div>
+    <p class="hero-tagline">{site.tagline}</p>
+    <div class="hero-cta">
+      <a class="btn btn-primary" href="/blog">看部落格 →</a>
+      <a class="btn btn-secondary" href="#connect">聯絡阿波</a>
+    </div>
+  </div>
+
+  <a class="scroll-cue" href="#about" aria-label="往下捲動">
+    <span aria-hidden="true">▾</span>
+  </a>
+</section>
+
+<style>
+  .hero {
+    position: relative;
+    overflow: hidden;
+    min-height: min(86vh, 760px);
+    display: flex;
+    align-items: center;
+    text-align: center;
+    background:
+      radial-gradient(120% 90% at 50% -10%, var(--rice-50), transparent 60%),
+      var(--bg);
+  }
+  :root[data-theme="dark"] .hero {
+    background:
+      radial-gradient(120% 90% at 50% -10%, rgba(255, 210, 76, 0.08), transparent 60%),
+      linear-gradient(180deg, var(--nori-900), var(--bg) 55%);
+  }
+  .bg-triangle {
+    position: absolute;
+    width: min(85vw, 720px);
+    height: auto;
+    right: -12%;
+    top: 8%;
+    opacity: 0.06;
+    color: var(--rice-400);
+    fill: currentColor;
+    pointer-events: none;
+    transform: rotate(8deg);
+  }
+  .hero-inner {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-3);
+    padding-block: var(--space-9);
+  }
+  .hero-logo {
+    animation: pop var(--dur-hero) var(--ease-spring) both;
+  }
+  .hero-title {
+    font-size: clamp(2.25rem, 1.5rem + 3.4vw, 3.5rem);
+    margin-top: var(--space-2);
+  }
+  .hero-name {
+    color: var(--text-muted);
+    font-size: 1.05rem;
+  }
+  .roles {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    justify-content: center;
+    margin-block: var(--space-2);
+  }
+  .role-chip {
+    padding: 4px 14px;
+    border-radius: var(--radius-pill);
+    background: var(--rice-100);
+    color: var(--rice-800);
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+  :root[data-theme="dark"] .role-chip {
+    background: rgba(255, 210, 76, 0.14);
+    color: var(--rice-300);
+  }
+  .hero-tagline {
+    max-width: 46ch;
+    color: var(--text-muted);
+    line-height: 1.9;
+    margin-top: var(--space-2);
+  }
+  .hero-cta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+    justify-content: center;
+    margin-top: var(--space-5);
+  }
+  .scroll-cue {
+    position: absolute;
+    bottom: var(--space-5);
+    left: 50%;
+    transform: translateX(-50%);
+    color: var(--rice-600);
+    font-size: 1.5rem;
+    text-decoration: none;
+    animation: bounce 1.8s var(--ease-in-out) infinite;
+  }
+  @keyframes pop {
+    from {
+      opacity: 0;
+      transform: scale(0.92);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+  @keyframes bounce {
+    0%,
+    100% {
+      transform: translate(-50%, 0);
+    }
+    50% {
+      transform: translate(-50%, 8px);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .hero-logo,
+    .scroll-cue {
+      animation: none;
+    }
+  }
+</style>

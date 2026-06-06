@@ -1,0 +1,80 @@
+---
+import { site } from "../data/site";
+interface Props {
+  variant?: "light" | "onNori";
+}
+const { variant = "light" } = Astro.props;
+
+const links = [
+  { label: "LinkedIn", href: site.social.linkedin, icon: "in" },
+  { label: "Shopee 賣場", href: site.social.shopee, icon: "S" },
+  { label: "Email", href: `mailto:${site.email}`, icon: "@" },
+];
+---
+
+<div class:list={["social", variant]}>
+  {
+    links.map((l) => (
+      <a class="social-pill" href={l.href} target={l.href.startsWith("http") ? "_blank" : undefined} rel="noopener">
+        <span class="ic" aria-hidden="true">{l.icon}</span>
+        <span>{l.label}</span>
+      </a>
+    ))
+  }
+</div>
+
+<style>
+  .social {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+  }
+  .social-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: 10px 18px;
+    border-radius: var(--radius-pill);
+    border: 1.5px solid var(--border-strong);
+    background: var(--surface);
+    color: var(--text);
+    font-weight: 600;
+    font-size: 0.95rem;
+    text-decoration: none;
+    transition:
+      transform var(--dur-fast) var(--ease-out),
+      border-color var(--dur-fast) var(--ease-out),
+      background-color var(--dur-fast) var(--ease-out);
+  }
+  .social-pill:hover {
+    transform: translateY(-2px);
+    border-color: var(--rice-500);
+    background: var(--rice-50);
+    text-decoration: none;
+  }
+  :root[data-theme="dark"] .social-pill:hover {
+    background: var(--surface-elevated);
+  }
+  .ic {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: var(--radius-pill);
+    background: var(--rice-400);
+    color: var(--on-accent);
+    font-weight: 700;
+    font-size: 0.8rem;
+  }
+  /* on the dark nori footer */
+  .onNori .social-pill {
+    background: transparent;
+    border-color: rgba(242, 236, 224, 0.25);
+    color: #f2ece0;
+  }
+  .onNori .social-pill:hover {
+    background: rgba(255, 210, 76, 0.12);
+    border-color: var(--rice-400);
+  }
+</style>

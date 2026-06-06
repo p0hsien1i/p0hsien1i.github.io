@@ -54,6 +54,7 @@ const gaInline = `window.dataLayer=window.dataLayer||[];function gtag(){dataLaye
     <!-- No-flash theme init (runs before paint) -->
     <script is:inline>
       (function () {
+        document.documentElement.classList.add("js");
         try {
           var t = localStorage.getItem("theme");
           var d = t || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
@@ -76,5 +77,32 @@ const gaInline = `window.dataLayer=window.dataLayer||[];function gtag(){dataLaye
   </head>
   <body>
     <slot />
+
+    <!-- Scroll-reveal (respects reduced-motion via CSS) -->
+    <script is:inline>
+      (function () {
+        var els = document.querySelectorAll(".reveal");
+        if (!("IntersectionObserver" in window) || !els.length) {
+          els.forEach(function (el) {
+            el.classList.add("is-visible");
+          });
+          return;
+        }
+        var io = new IntersectionObserver(
+          function (entries) {
+            entries.forEach(function (e) {
+              if (e.isIntersecting) {
+                e.target.classList.add("is-visible");
+                io.unobserve(e.target);
+              }
+            });
+          },
+          { threshold: 0.12 }
+        );
+        els.forEach(function (el) {
+          io.observe(el);
+        });
+      })();
+    </script>
   </body>
 </html>

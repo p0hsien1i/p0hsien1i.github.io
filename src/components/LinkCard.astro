@@ -1,0 +1,71 @@
+---
+interface Props {
+  title: string;
+  href: string;
+  desc?: string;
+  icon?: string;
+  external?: boolean;
+}
+const { title, href, desc, icon = "▲", external = false } = Astro.props;
+---
+
+<a
+  class="card linkcard"
+  href={href}
+  target={external ? "_blank" : undefined}
+  rel={external ? "noopener" : undefined}
+>
+  <span class="lc-icon" aria-hidden="true">{icon}</span>
+  <h3 class="lc-title">{title}</h3>
+  {desc && <p class="lc-desc">{desc}</p>}
+  <span class="lc-arrow" aria-hidden="true">→</span>
+</a>
+
+<style>
+  .linkcard {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding: var(--space-5);
+    text-decoration: none;
+    color: var(--text);
+    height: 100%;
+  }
+  .linkcard:hover {
+    text-decoration: none;
+  }
+  .lc-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-md);
+    background: var(--rice-100);
+    color: var(--rice-700);
+    font-size: 1rem;
+  }
+  :root[data-theme="dark"] .lc-icon {
+    background: rgba(255, 210, 76, 0.14);
+    color: var(--rice-300);
+  }
+  .lc-title {
+    margin-top: var(--space-2);
+  }
+  .lc-desc {
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    line-height: 1.7;
+  }
+  .lc-arrow {
+    margin-top: auto;
+    align-self: flex-end;
+    color: var(--rice-600);
+    font-size: 1.2rem;
+    transition: transform var(--dur-base) var(--ease-out);
+  }
+  .linkcard:hover .lc-arrow {
+    transform: translateX(4px);
+  }
+</style>

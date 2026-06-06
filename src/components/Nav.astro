@@ -1,0 +1,156 @@
+---
+import Logo from "./Logo.astro";
+import DarkModeToggle from "./islands/DarkModeToggle.astro";
+import { site, navLinks } from "../data/site";
+---
+
+<header id="site-nav" class="nav">
+  <div class="nav-inner container container-wide">
+    <a class="brand logo-hover" href="/">
+      <Logo size={36} />
+      <span class="wordmark">{site.name}</span>
+    </a>
+
+    <nav class="links" aria-label="主選單">
+      {navLinks.map((l) => <a href={l.href}>{l.label}</a>)}
+    </nav>
+
+    <div class="nav-right">
+      <DarkModeToggle />
+      <details class="menu">
+        <summary aria-label="開啟選單"><span aria-hidden="true">☰</span></summary>
+        <div class="menu-panel">
+          {navLinks.map((l) => <a href={l.href}>{l.label}</a>)}
+        </div>
+      </details>
+    </div>
+  </div>
+</header>
+
+<style>
+  .nav {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: color-mix(in srgb, var(--bg) 82%, transparent);
+    backdrop-filter: saturate(140%) blur(8px);
+    border-bottom: 1px solid transparent;
+    transition:
+      border-color var(--dur-base) var(--ease-out),
+      box-shadow var(--dur-base) var(--ease-out),
+      background-color var(--dur-base) var(--ease-out);
+  }
+  .nav.scrolled {
+    border-bottom-color: var(--border);
+    box-shadow: var(--shadow-2);
+  }
+  .nav-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+    min-height: 64px;
+  }
+  .brand {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    text-decoration: none;
+    color: var(--text);
+  }
+  .wordmark {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 1.2rem;
+    white-space: nowrap;
+  }
+  .links {
+    display: flex;
+    align-items: center;
+    gap: var(--space-5);
+  }
+  .links a {
+    color: var(--text-muted);
+    font-weight: 500;
+    font-size: 0.95rem;
+    text-decoration: none;
+    transition: color var(--dur-fast) var(--ease-out);
+  }
+  .links a:hover {
+    color: var(--accent-text);
+  }
+  .nav-right {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+  }
+  .menu {
+    display: none;
+    position: relative;
+  }
+  .menu summary {
+    list-style: none;
+    width: 44px;
+    height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-pill);
+    border: 1.5px solid var(--border);
+    background: var(--surface);
+    cursor: pointer;
+    font-size: 1.2rem;
+  }
+  .menu summary::-webkit-details-marker {
+    display: none;
+  }
+  .menu-panel {
+    position: absolute;
+    right: 0;
+    top: 52px;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    min-width: 180px;
+    padding: var(--space-3);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-4);
+  }
+  .menu-panel a {
+    padding: 10px 12px;
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    text-decoration: none;
+  }
+  .menu-panel a:hover {
+    background: var(--rice-50);
+    color: var(--accent-text);
+  }
+  :root[data-theme="dark"] .menu-panel a:hover {
+    background: var(--surface-elevated);
+  }
+
+  @media (max-width: 860px) {
+    .links {
+      display: none;
+    }
+    .menu {
+      display: block;
+    }
+  }
+</style>
+
+<script is:inline>
+  (function () {
+    var nav = document.getElementById("site-nav");
+    if (!nav) return;
+    var onScroll = function () {
+      if (window.scrollY > 40) nav.classList.add("scrolled");
+      else nav.classList.remove("scrolled");
+    };
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+  })();
+</script>

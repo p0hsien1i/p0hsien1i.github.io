@@ -1,0 +1,43 @@
+---
+// Hand-drawn-feel onigiri mark (rounded triangle + nori band + sesame).
+interface Props {
+  size?: number;
+  class?: string;
+}
+const { size = 40, class: cls = "" } = Astro.props;
+---
+
+<svg
+  class:list={["onigiri", cls]}
+  width={size}
+  height={size}
+  viewBox="0 0 64 64"
+  role="img"
+  aria-label="阿波三角飯糰"
+  fill="none"
+>
+  <path
+    class="rice"
+    d="M32 7c2.2 0 4.2 1.2 5.3 3.1l19.4 35.2c2.2 4-0.7 8.9-5.3 8.9H14.6c-4.6 0-7.5-4.9-5.3-8.9L28.7 10.1C29.8 8.2 31.8 7 32 7Z"
+    fill="var(--rice-400)"
+    stroke="var(--rice-500)"
+    stroke-width="2"
+    stroke-linejoin="round"></path>
+  <rect class="nori" x="21" y="39" width="22" height="15" rx="3.5" fill="var(--nori-800)"></rect>
+  <circle cx="27" cy="30" r="1.6" fill="var(--rice-900)"></circle>
+  <circle cx="37" cy="33" r="1.6" fill="var(--rice-900)"></circle>
+</svg>
+
+<style>
+  .onigiri {
+    display: inline-block;
+    transition: transform var(--dur-slow) var(--ease-spring);
+  }
+  /* gentle wiggle on hover of an ancestor marked .logo-hover */
+  :global(.logo-hover:hover) .onigiri {
+    transform: rotate(-4deg);
+  }
+  :root[data-theme="dark"] .nori {
+    fill: var(--nori-900);
+  }
+</style>

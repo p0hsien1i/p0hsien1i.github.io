@@ -1,0 +1,73 @@
+---
+interface Props {
+  id: string;
+  title: string;
+  subtitle?: string;
+  viewAll?: string;
+  viewAllLabel?: string;
+}
+const { id, title, subtitle, viewAll, viewAllLabel = "看全部 →" } = Astro.props;
+---
+
+<section id={id} class="section reveal">
+  <div class="container">
+    <div class="section-head">
+      <div class="head-text">
+        <h2 class="section-title">{title}</h2>
+        {subtitle && <p class="section-sub">{subtitle}</p>}
+      </div>
+      {viewAll && <a class="view-all" href={viewAll}>{viewAllLabel}</a>}
+    </div>
+    <slot />
+  </div>
+</section>
+
+<style>
+  .section {
+    padding-block: var(--space-8);
+  }
+  .section-head {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: var(--space-4);
+    margin-bottom: var(--space-6);
+  }
+  .section-title {
+    position: relative;
+    display: inline-block;
+    padding-bottom: 6px;
+  }
+  .section-title::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 56px;
+    height: 4px;
+    border-radius: var(--radius-pill);
+    background: var(--rice-400);
+  }
+  .section-sub {
+    margin-top: var(--space-3);
+    color: var(--text-muted);
+    max-width: 60ch;
+  }
+  .view-all {
+    flex-shrink: 0;
+    color: var(--accent-text);
+    font-weight: 600;
+    font-size: 0.95rem;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+  .view-all:hover {
+    text-decoration: underline;
+  }
+  @media (max-width: 560px) {
+    .section-head {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+  }
+</style>

@@ -267,13 +267,16 @@ small {
    Motion utility — scroll reveal (JS adds .is-visible)
    ============================================================ */
 .reveal {
-  opacity: 0;
-  transform: translateY(24px);
   transition:
     opacity var(--dur-slow) var(--ease-out),
     transform var(--dur-slow) var(--ease-out);
 }
-.reveal.is-visible {
+/* Only hide when JS is present (html.js added pre-paint). No-JS/crawlers see content. */
+html.js .reveal {
+  opacity: 0;
+  transform: translateY(24px);
+}
+html.js .reveal.is-visible {
   opacity: 1;
   transform: none;
 }
@@ -287,8 +290,8 @@ small {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
-  .reveal {
-    opacity: 1;
-    transform: none;
+  html.js .reveal {
+    opacity: 1 !important;
+    transform: none !important;
   }
 }

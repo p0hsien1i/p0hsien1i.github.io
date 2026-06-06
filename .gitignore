@@ -15,3 +15,5 @@ pnpm-debug.log*
 # macOS / Windows cruft
 .DS_Store
 Thumbs.db
+# local screenshot scratch
+_shots/

@@ -1,0 +1,80 @@
+---
+import type { CollectionEntry } from "astro:content";
+import { categories } from "../data/categories";
+
+interface Props {
+  post: CollectionEntry<"blog">;
+}
+const { post } = Astro.props;
+const cat = categories[post.data.category];
+const date = post.data.pubDate.toISOString().slice(0, 10);
+---
+
+<a class="card postcard" href={`/blog/${post.id}/`}>
+  <div class="pc-body">
+    <span class="chip" style={`background:${cat.bg};color:${cat.fg}`}>{cat.label}</span>
+    <h3 class="pc-title">{post.data.title}</h3>
+    {post.data.description && <p class="pc-excerpt">{post.data.description}</p>}
+    <div class="pc-meta">
+      <time datetime={date}>{date}</time>
+      <span class="pc-arrow" aria-hidden="true">→</span>
+    </div>
+  </div>
+</a>
+
+<style>
+  .postcard {
+    display: block;
+    text-decoration: none;
+    color: var(--text);
+    height: 100%;
+    overflow: hidden;
+  }
+  .postcard:hover {
+    text-decoration: none;
+  }
+  .pc-body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    padding: var(--space-5);
+    height: 100%;
+  }
+  .pc-title {
+    line-height: 1.4;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .postcard:hover .pc-title {
+    color: var(--accent-text);
+  }
+  .pc-excerpt {
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    line-height: 1.75;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .pc-meta {
+    margin-top: auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    color: var(--text-faint);
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+  }
+  .pc-arrow {
+    color: var(--rice-600);
+    transition: transform var(--dur-base) var(--ease-out);
+  }
+  .postcard:hover .pc-arrow {
+    transform: translateX(4px);
+  }
+</style>

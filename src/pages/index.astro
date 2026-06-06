@@ -1,11 +1,255 @@
 ---
-import BaseLayout from '../layouts/BaseLayout.astro';
+import { getCollection } from "astro:content";
+import BaseLayout from "../layouts/BaseLayout.astro";
+import Nav from "../components/Nav.astro";
+import Footer from "../components/Footer.astro";
+import Hero from "../components/Hero.astro";
+import Section from "../components/Section.astro";
+import PostCard from "../components/PostCard.astro";
+import ComingSoonCard from "../components/ComingSoonCard.astro";
+import LinkCard from "../components/LinkCard.astro";
+import SocialLinks from "../components/SocialLinks.astro";
+import { site } from "../data/site";
+
+const latest = (await getCollection("blog"))
+  .filter((p) => !p.data.draft)
+  .sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf())
+  .slice(0, 3);
 ---
 
-<BaseLayout title="阿波的三角飯糰">
+<BaseLayout title={site.name}>
+  <Nav />
   <main>
-    <h1>阿波的三角飯糰</h1>
-    <p>這裡是阿波的隨筆天地 — 吃喝玩樂、投資與抒發心情的地方。全新改版建置中。</p>
-    <p><a href="/blog">看部落格 →</a></p>
+    <Hero />
+
+    <!-- About -->
+    <section id="about" class="about reveal">
+      <div class="container container-prose">
+        <h2 class="section-title">關於阿波</h2>
+        <p class="about-p">
+          嗨,我是<strong>李柏憲(Brian)</strong>,台大藥學畢業的藥師,白天在臨床試驗與<span class="marker">定量藥理</span>的世界裡打滾,
+          副業則是研究期貨與量化交易。這裡是「阿波的三角飯糰」—— 我記錄吃喝玩樂、投資觀察與生活心情的小天地。
+        </p>
+        <p class="about-p">
+          名片也好、隨筆也罷,歡迎隨意逛逛。想聊聊或合作,往下滑到<a href="#connect">聯絡</a>找我就行。
+        </p>
+      </div>
+    </section>
+
+    <!-- Blog highlights -->
+    <Section
+      id="blog"
+      title="日記 / 食記 / 旅遊"
+      subtitle="不定時更新的隨筆天地 —— 食記、影評、旅遊與生活心得。"
+      viewAll="/blog"
+    >
+      {
+        latest.length > 0 ? (
+          <div class="card-grid">
+            {latest.map((p) => (
+              <PostCard post={p} />
+            ))}
+          </div>
+        ) : (
+          <p class="muted">文章陸續搬遷上架中。</p>
+        )
+      }
+    </Section>
+
+    <!-- Pharmacist murmur -->
+    <Section
+      id="pharmacist"
+      title="阿波藥師的 Murmur"
+      subtitle="藥師視角的臨床、用藥安全與統計筆記,籌備中。"
+    >
+      <div class="card-grid">
+        <ComingSoonCard title="2022 ADA 糖尿病指引" />
+        <ComingSoonCard title="用藥安全" />
+        <ComingSoonCard title="臨床試驗新知" />
+        <ComingSoonCard title="統計方法" />
+      </div>
+    </Section>
+
+    <!-- Invest -->
+    <Section
+      id="invest"
+      title="投資 · 跌不下去的股票"
+      subtitle="2021 年的台股選股觀察紀錄(歷史封存)。"
+      viewAll="/blog/category/stock"
+      viewAllLabel="看選股紀錄 →"
+    >
+      <div class="card-grid">
+        <LinkCard
+          title="選股紀錄 Archive"
+          href="/blog/category/stock"
+          icon="▲"
+          desc="台股每日量能彙整 + 強勢股篩選結果(2021 年 12 月)。"
+        />
+      </div>
+    </Section>
+
+    <!-- Sports -->
+    <Section id="sports" title="運動賽事心得" subtitle="籌備中。">
+      <div class="card-grid">
+        <ComingSoonCard title="運動賽事心得" />
+      </div>
+    </Section>
+
+    <!-- Podcast -->
+    <Section id="podcast" title="阿波的三角飯糰 Podcast" subtitle="在 Apple Podcasts 上聽。">
+      <div class="card podcast-card">
+        <iframe
+          title="阿波的三角飯糰 Podcast"
+          allow="autoplay *; encrypted-media *; fullscreen *"
+          loading="lazy"
+          frameborder="0"
+          height="175"
+          style="width:100%;max-width:660px;overflow:hidden;border-radius:12px;background:transparent;"
+          sandbox="allow-forms allow-popups allow-same-origin allow-scripts allow-storage-access-by-user-activation allow-top-navigation-by-user-activation"
+          src="https://embed.podcasts.apple.com/tw/podcast/this-is-a-test/id1571017109?i=1000524376986"
+        ></iframe>
+      </div>
+    </Section>
+
+    <!-- Videos -->
+    <Section id="videos" title="貝塔部落客影片" subtitle="阿波的影音作品。">
+      <div class="video-grid">
+        <div class="card video-card">
+          <div class="ratio">
+            <iframe
+              src="https://www.youtube-nocookie.com/embed/AZSMU8IQEnE"
+              title="南港追星之旅 — 給冷鴿甜點"
+              loading="lazy"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowfullscreen></iframe>
+          </div>
+          <p class="vcap">南港追星之旅 — 給冷鴿甜點</p>
+        </div>
+      </div>
+    </Section>
+
+    <!-- Voice -->
+    <Section id="voice" title="Joe Huang 配音專區" subtitle="配音作品即將上架。">
+      <div class="card-grid">
+        <ComingSoonCard
+          title="配音作品"
+          items={["海綿寶寶 派大星", "海綿寶寶 珊迪", "廣播劇配音", "Pecker / Eddy / 海鷗 Sammy"]}
+        />
+      </div>
+    </Section>
+
+    <!-- Connect -->
+    <section id="connect" class="connect reveal">
+      <div class="container">
+        <div class="card connect-card">
+          <h2 class="section-title">聯絡阿波</h2>
+          <p class="connect-p">有任何想聊的、合作邀約,歡迎透過以下方式找我,我會盡快回覆。</p>
+          <SocialLinks />
+          <a class="btn btn-primary mailbtn" href={`mailto:${site.email}`}>寄信給阿波 ✉</a>
+        </div>
+      </div>
+    </section>
   </main>
+  <Footer />
 </BaseLayout>
+
+<style>
+  .about {
+    padding-block: var(--space-8) var(--space-6);
+  }
+  .about .section-title {
+    margin-bottom: var(--space-4);
+  }
+  .about-p {
+    font-size: 1.0625rem;
+    line-height: 1.95;
+    color: var(--text);
+  }
+  .about-p + .about-p {
+    margin-top: var(--space-4);
+    color: var(--text-muted);
+  }
+
+  .card-grid {
+    display: grid;
+    gap: var(--space-5);
+    grid-template-columns: 1fr;
+  }
+  @media (min-width: 640px) {
+    .card-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+  @media (min-width: 1024px) {
+    .card-grid {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+
+  .muted {
+    color: var(--text-muted);
+  }
+
+  .podcast-card {
+    display: flex;
+    justify-content: center;
+    padding: var(--space-5);
+  }
+
+  .video-grid {
+    display: grid;
+    gap: var(--space-5);
+    grid-template-columns: 1fr;
+  }
+  @media (min-width: 760px) {
+    .video-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+  .video-card {
+    overflow: hidden;
+    padding: var(--space-3);
+  }
+  .ratio {
+    position: relative;
+    aspect-ratio: 16 / 9;
+  }
+  .ratio iframe {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    border-radius: var(--radius-sm);
+  }
+  .vcap {
+    padding: var(--space-3) var(--space-2) var(--space-2);
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.95rem;
+  }
+
+  .connect {
+    padding-block: var(--space-8);
+  }
+  .connect-card {
+    padding: var(--space-7);
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-4);
+  }
+  .connect-card:hover {
+    transform: none;
+    box-shadow: var(--shadow-2);
+    border-color: var(--border);
+  }
+  .connect-p {
+    color: var(--text-muted);
+    max-width: 50ch;
+  }
+  .mailbtn {
+    margin-top: var(--space-2);
+  }
+</style>

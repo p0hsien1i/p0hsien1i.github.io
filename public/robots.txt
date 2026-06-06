@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://p0hsien1i.github.io/sitemap-index.xml

@@ -9,7 +9,9 @@ import PostCard from "../components/PostCard.astro";
 import ComingSoonCard from "../components/ComingSoonCard.astro";
 import LinkCard from "../components/LinkCard.astro";
 import SocialLinks from "../components/SocialLinks.astro";
+import AudioPlayer from "../components/AudioPlayer.astro";
 import { site } from "../data/site";
+import { voiceClips } from "../data/voice";
 
 const latest = (await getCollection("blog"))
   .filter((p) => !p.data.draft)
@@ -129,12 +131,9 @@ const latest = (await getCollection("blog"))
     </Section>
 
     <!-- Voice -->
-    <Section id="voice" title="Joe Huang 配音專區" subtitle="配音作品即將上架。">
+    <Section id="voice" title="Joe Huang 配音專區" subtitle="阿波的配音作品,點播放聽聽看。">
       <div class="card-grid">
-        <ComingSoonCard
-          title="配音作品"
-          items={["海綿寶寶 派大星", "海綿寶寶 珊迪", "廣播劇配音", "Pecker / Eddy / 海鷗 Sammy"]}
-        />
+        {voiceClips.map((c) => <AudioPlayer title={c.title} src={c.src} image={c.image} />)}
       </div>
     </Section>
 

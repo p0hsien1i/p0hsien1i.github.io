@@ -67,9 +67,8 @@ collections:
         options:
           - { label: "食記 food", value: food }
           - { label: "影評 movie", value: movie }
-          - { label: "心得 essay", value: essay }
-          - { label: "隨筆 journal", value: journal }
-          - { label: "投資 stock", value: stock }
+          - { label: "隨筆 essay", value: essay }
+          - { label: "投資 investment", value: investment }
         hint: "選『食記』請務必填下面的『食記資訊』;選『投資』請填『投資資訊』,否則網站不會更新"
       - {
           label: 封面圖(可選),
@@ -138,7 +137,7 @@ collections:
               - { label: 美味, name: taste, widget: number, value_type: float, min: 0, max: 5, step: 0.5, default: 5 }
               - { label: 價格, name: price, widget: number, value_type: float, min: 0, max: 5, step: 0.5, default: 5 }
       - label: 投資資訊(分類選「投資」時必填)
-        name: stock
+        name: investment
         widget: object
         required: false
         collapsed: true

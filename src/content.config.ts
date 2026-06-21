@@ -13,7 +13,7 @@ const blog = defineCollection({
         pubDate: z.coerce.date(),
         updatedDate: z.coerce.date().optional(),
         // food=食記 movie=影評 essay=心得 journal=隨筆 stock=投資
-        category: z.enum(['food', 'movie', 'essay', 'journal', 'stock']),
+        category: z.enum(['food', 'movie', 'essay', 'investment']),
         tags: z.array(z.string()).default([]),
         cover: image().optional(),
         // co-authored example: ['Jessica Huang (米編)', 'Brian Li (飯糰編)']
@@ -39,8 +39,8 @@ const blog = defineCollection({
           })
           .optional(),
 
-        // category === 'stock'
-        stock: z
+        // category === 'investment'
+        investment: z
           .object({
             marketDate: z.coerce.date(),
             charts: z.array(image()).default([]),
@@ -51,8 +51,8 @@ const blog = defineCollection({
       .superRefine((d, ctx) => {
         if (d.category === 'food' && !d.foodReview)
           ctx.addIssue({ code: 'custom', message: 'food posts require a foodReview block' });
-        if (d.category === 'stock' && !d.stock)
-          ctx.addIssue({ code: 'custom', message: 'stock posts require a stock block' });
+        if (d.category === 'investment' && !d.investment)
+          ctx.addIssue({ code: 'custom', message: 'investment posts require an investment block' });
       }),
 });
 

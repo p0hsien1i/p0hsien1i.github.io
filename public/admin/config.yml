@@ -1,0 +1,158 @@
+# Sveltia CMS 設定 — 阿波的三角飯糰
+# 對映 Astro content collection:src/content.config.ts 的 blog
+# 後台網址:https://p0hsien1i.github.io/admin/
+# 慣例:每篇一個資料夾 src/content/blog/<slug>/index.mdx + 同夾圖片(相對引用)
+
+backend:
+  name: github
+  repo: p0hsien1i/p0hsien1i.github.io
+  branch: main
+  # ↓↓ 部署 Cloudflare auth worker 後,把這行取消註解並填入 worker 網址,才能「用 GitHub 登入」
+  # base_url: https://sveltia-cms-auth.<你的子網域>.workers.dev
+
+# 介面語言
+locale: zh
+
+# 全域 media 後備值(各 collection 已覆蓋為「與文章同資料夾」)
+media_folder: /public/uploads
+public_folder: /uploads
+
+collections:
+  - name: blog
+    label: 文章
+    label_singular: 文章
+    folder: src/content/blog
+    create: true
+    # 每篇存成 <slug>/index.mdx(配合 page-bundle 慣例)
+    path: "{{slug}}/index"
+    extension: mdx
+    format: frontmatter
+    # slug = 日期-標題(英文化);例 2026-06-21-my-post
+    slug: "{{year}}-{{month}}-{{day}}-{{slug}}"
+    # 圖片與文章同資料夾,內文用相對路徑 ./xxx.jpg(astro:assets 會最佳化)
+    media_folder: ""
+    public_folder: ""
+    summary: "{{title}}  ·  {{category}}  ·  {{pubDate}}"
+    sortable_fields: [pubDate, title, category]
+    fields:
+      - { label: 標題, name: title, widget: string }
+      - {
+          label: 一句摘要,
+          name: description,
+          widget: text,
+          required: false,
+          hint: "會顯示在文章卡片與搜尋結果",
+        }
+      - {
+          label: 發佈日期,
+          name: pubDate,
+          widget: datetime,
+          date_format: "YYYY-MM-DD",
+          time_format: false,
+          format: "YYYY-MM-DD",
+        }
+      - {
+          label: 更新日期(可留空),
+          name: updatedDate,
+          widget: datetime,
+          required: false,
+          date_format: "YYYY-MM-DD",
+          time_format: false,
+          format: "YYYY-MM-DD",
+        }
+      - label: 分類
+        name: category
+        widget: select
+        default: essay
+        options:
+          - { label: "食記 food", value: food }
+          - { label: "影評 movie", value: movie }
+          - { label: "心得 essay", value: essay }
+          - { label: "隨筆 journal", value: journal }
+          - { label: "投資 stock", value: stock }
+        hint: "選『食記』請務必填下面的『食記資訊』;選『投資』請填『投資資訊』,否則網站不會更新"
+      - {
+          label: 封面圖(可選),
+          name: cover,
+          widget: image,
+          required: false,
+          hint: "顯示在文章最上方;不放也可以",
+        }
+      - {
+          label: 標籤,
+          name: tags,
+          widget: list,
+          required: false,
+          default: [],
+        }
+      - {
+          label: 作者,
+          name: authors,
+          widget: list,
+          default: ["Brian Li (飯糰編)"],
+          hint: "與米編合著就加一項:Jessica Huang (米編)",
+        }
+      - label: 語言
+        name: lang
+        widget: select
+        default: zh
+        options:
+          - { label: 中文, value: zh }
+          - { label: English, value: en }
+      - {
+          label: 草稿(打勾就不會公開),
+          name: draft,
+          widget: boolean,
+          default: false,
+        }
+      - { label: 精選, name: featured, widget: boolean, default: false }
+      - label: YouTube 影片(可空)
+        name: youtube
+        widget: list
+        required: false
+        default: []
+        field: { label: 影片 ID 或網址, name: id, widget: string }
+        hint: "貼影片 ID 或完整網址都可以,會自動嵌入到文章下方"
+      - label: 食記資訊(分類選「食記」時必填)
+        name: foodReview
+        widget: object
+        required: false
+        collapsed: true
+        fields:
+          - { label: 店名, name: location, widget: string }
+          - { label: 地址, name: address, widget: string, required: false }
+          - {
+              label: Google Map 嵌入網址,
+              name: mapEmbed,
+              widget: string,
+              required: false,
+              hint: "Google 地圖→分享→嵌入地圖,複製 iframe 裡 src 的網址",
+            }
+          - label: 評分(0~5,可小數)
+            name: ratings
+            widget: object
+            fields:
+              - { label: 交通, name: transport, widget: number, value_type: float, min: 0, max: 5, step: 0.5, default: 5 }
+              - { label: 環境, name: ambience, widget: number, value_type: float, min: 0, max: 5, step: 0.5, default: 5 }
+              - { label: 服務, name: service, widget: number, value_type: float, min: 0, max: 5, step: 0.5, default: 5 }
+              - { label: 美味, name: taste, widget: number, value_type: float, min: 0, max: 5, step: 0.5, default: 5 }
+              - { label: 價格, name: price, widget: number, value_type: float, min: 0, max: 5, step: 0.5, default: 5 }
+      - label: 投資資訊(分類選「投資」時必填)
+        name: stock
+        widget: object
+        required: false
+        collapsed: true
+        fields:
+          - {
+              label: 行情日期,
+              name: marketDate,
+              widget: datetime,
+              date_format: "YYYY-MM-DD",
+              time_format: false,
+              format: "YYYY-MM-DD",
+            }
+          - { label: 已封存, name: archived, widget: boolean, default: true }
+      - label: 內文
+        name: body
+        widget: markdown
+        hint: "正文用 Markdown;插入圖片直接拖放即可(會存到文章同資料夾)"

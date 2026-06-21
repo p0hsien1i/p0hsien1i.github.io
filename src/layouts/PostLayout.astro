@@ -4,6 +4,7 @@ import Nav from "../components/Nav.astro";
 import Footer from "../components/Footer.astro";
 import CategoryBadge from "../components/CategoryBadge.astro";
 import FoodReviewMeta from "../components/FoodReviewMeta.astro";
+import YouTubeEmbed from "../components/YouTubeEmbed.astro";
 import { Image } from "astro:assets";
 import type { CollectionEntry } from "astro:content";
 
@@ -13,6 +14,12 @@ interface Props {
 const { post } = Astro.props;
 const d = post.data;
 const date = d.pubDate.toISOString().slice(0, 10);
+
+// youtube frontmatter 可填影片 ID 或完整網址;統一抽出 11 碼 video id
+const ytId = (s: string) => {
+  const m = s.match(/(?:v=|youtu\.be\/|embed\/|shorts\/)([\w-]{11})/);
+  return m ? m[1] : s.trim();
+};
 ---
 
 <BaseLayout title={d.title} description={d.description}>
@@ -31,6 +38,16 @@ const date = d.pubDate.toISOString().slice(0, 10);
     {d.category === "food" && d.foodReview && <FoodReviewMeta foodReview={d.foodReview} />}
 
     <article class="prose"><slot /></article>
+
+    {
+      d.youtube && d.youtube.length > 0 && (
+        <div class="post-videos">
+          {d.youtube.map((u) => (
+            <YouTubeEmbed id={ytId(u)} />
+          ))}
+        </div>
+      )
+    }
 
     <div class="post-foot">
       <a class="back" href="/blog">← 回部落格</a>

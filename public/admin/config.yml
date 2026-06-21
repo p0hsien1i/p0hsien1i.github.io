@@ -25,9 +25,9 @@ media_libraries:
       transformations:
         raster_image:
           format: webp
-          quality: 82
-          width: 1920
-          height: 1920
+          quality: 88
+          width: 2048
+          height: 2048
         svg:
           optimize: true
 

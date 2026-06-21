@@ -17,6 +17,20 @@ locale: zh
 media_folder: /public/uploads
 public_folder: /uploads
 
+# 上傳圖片自動最佳化:轉 WebP + 限最大邊長,避免手機大圖塞爆瀏覽器記憶體
+media_libraries:
+  default:
+    config:
+      slugify_filename: true
+      transformations:
+        raster_image:
+          format: webp
+          quality: 82
+          width: 1920
+          height: 1920
+        svg:
+          optimize: true
+
 collections:
   - name: blog
     label: 文章

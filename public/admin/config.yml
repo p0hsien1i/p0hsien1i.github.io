@@ -7,8 +7,8 @@ backend:
   name: github
   repo: p0hsien1i/p0hsien1i.github.io
   branch: main
-  # ↓↓ 部署 Cloudflare auth worker 後,把這行取消註解並填入 worker 網址,才能「用 GitHub 登入」
-  # base_url: https://sveltia-cms-auth.<你的子網域>.workers.dev
+  # GitHub 登入用的 auth worker(Cloudflare)
+  base_url: https://sveltia-cms-auth.pohsienbrianli.workers.dev
 
 # 介面語言
 locale: zh

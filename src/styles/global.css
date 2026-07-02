@@ -232,8 +232,8 @@ small {
    ============================================================ */
 .prose {
   font-family: var(--font-serif);
-  font-size: 1.0625rem;
-  line-height: 1.9;
+  font-size: 1.125rem;
+  line-height: 1.95;
   color: var(--text);
 }
 .prose > * + * {

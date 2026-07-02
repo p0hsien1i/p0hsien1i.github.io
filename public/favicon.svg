@@ -1,7 +1,16 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="阿波三角飯糰">
-  <path d="M32 7c2.2 0 4.2 1.2 5.3 3.1l19.4 35.2c2.2 4-0.7 8.9-5.3 8.9H14.6c-4.6 0-7.5-4.9-5.3-8.9L28.7 10.1C29.8 8.2 31.8 7 32 7Z" fill="#FFFFFF" stroke="#99A0AD" stroke-width="2" stroke-linejoin="round"/>
-  <rect x="21" y="39" width="22" height="15" rx="3.5" fill="#15181F"/>
-  <rect x="21" y="43.5" width="22" height="2.5" fill="#E10600"/>
-  <circle cx="27" cy="30" r="1.6" fill="#262A33"/>
-  <circle cx="37" cy="33" r="1.6" fill="#262A33"/>
+  <path d="M32 7c2.2 0 4.2 1.2 5.3 3.1l19.4 35.2c2.2 4-0.7 8.9-5.3 8.9H14.6c-4.6 0-7.5-4.9-5.3-8.9L28.7 10.1C29.8 8.2 31.8 7 32 7Z" fill="#F5B84F" stroke="#CD8629" stroke-width="2" stroke-linejoin="round"/>
+  <circle cx="32" cy="17" r="1.1" fill="#B96F1E" opacity="0.5"/>
+  <circle cx="25" cy="25" r="1.2" fill="#B96F1E" opacity="0.5"/>
+  <circle cx="39" cy="24" r="1.1" fill="#B96F1E" opacity="0.5"/>
+  <circle cx="19" cy="37" r="1.1" fill="#B96F1E" opacity="0.5"/>
+  <circle cx="45" cy="38" r="1.2" fill="#B96F1E" opacity="0.5"/>
+  <circle cx="26.5" cy="31" r="2" fill="#2B2118"/>
+  <circle cx="37.5" cy="31" r="2" fill="#2B2118"/>
+  <circle cx="27.2" cy="30.3" r="0.6" fill="#FFFFFF"/>
+  <circle cx="38.2" cy="30.3" r="0.6" fill="#FFFFFF"/>
+  <path d="M29 35 Q32 38 35 35" stroke="#2B2118" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+  <circle cx="21" cy="34.5" r="2.4" fill="#FF8A70" opacity="0.45"/>
+  <circle cx="43" cy="34.5" r="2.4" fill="#FF8A70" opacity="0.45"/>
+  <rect x="21" y="41" width="22" height="13" rx="3.5" fill="#1D1811"/>
 </svg>

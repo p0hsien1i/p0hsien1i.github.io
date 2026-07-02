@@ -1,5 +1,5 @@
 ---
-// Onigiri mark, AE86 panda livery: white rice + black nori + red racing stripe.
+// 炸飯糰 mark — 金黃酥脆 + 可愛臉蛋(眼睛、微笑、腮紅)+ 海苔腰帶。
 interface Props {
   size?: number;
   class?: string;
@@ -16,17 +16,29 @@ const { size = 40, class: cls = "" } = Astro.props;
   aria-label="阿波三角飯糰"
   fill="none"
 >
+  <!-- 炸得金黃的飯糰身體 -->
   <path
-    class="rice"
     d="M32 7c2.2 0 4.2 1.2 5.3 3.1l19.4 35.2c2.2 4-0.7 8.9-5.3 8.9H14.6c-4.6 0-7.5-4.9-5.3-8.9L28.7 10.1C29.8 8.2 31.8 7 32 7Z"
-    fill="#ffffff"
-    stroke="var(--steel-400)"
+    fill="#f5b84f"
+    stroke="#cd8629"
     stroke-width="2"
     stroke-linejoin="round"></path>
-  <rect class="nori" x="21" y="39" width="22" height="15" rx="3.5" fill="var(--steel-900)"></rect>
-  <rect class="stripe" x="21" y="43.5" width="22" height="2.5" fill="var(--racing-500)"></rect>
-  <circle cx="27" cy="30" r="1.6" fill="var(--steel-800)"></circle>
-  <circle cx="37" cy="33" r="1.6" fill="var(--steel-800)"></circle>
+  <!-- 酥脆麵衣的斑點 -->
+  <circle cx="32" cy="17" r="1.1" fill="#b96f1e" opacity="0.5"></circle>
+  <circle cx="25" cy="25" r="1.2" fill="#b96f1e" opacity="0.5"></circle>
+  <circle cx="39" cy="24" r="1.1" fill="#b96f1e" opacity="0.5"></circle>
+  <circle cx="19" cy="37" r="1.1" fill="#b96f1e" opacity="0.5"></circle>
+  <circle cx="45" cy="38" r="1.2" fill="#b96f1e" opacity="0.5"></circle>
+  <!-- 可愛的臉:眼睛 + 微笑 + 腮紅 -->
+  <circle cx="26.5" cy="31" r="2" fill="#2b2118"></circle>
+  <circle cx="37.5" cy="31" r="2" fill="#2b2118"></circle>
+  <circle cx="27.2" cy="30.3" r="0.6" fill="#ffffff"></circle>
+  <circle cx="38.2" cy="30.3" r="0.6" fill="#ffffff"></circle>
+  <path d="M29 35 Q32 38 35 35" stroke="#2b2118" stroke-width="1.8" stroke-linecap="round" fill="none"></path>
+  <circle cx="21" cy="34.5" r="2.4" fill="#ff8a70" opacity="0.45"></circle>
+  <circle cx="43" cy="34.5" r="2.4" fill="#ff8a70" opacity="0.45"></circle>
+  <!-- 海苔腰帶 -->
+  <rect x="21" y="41" width="22" height="13" rx="3.5" fill="#1d1811"></rect>
 </svg>
 
 <style>
@@ -37,15 +49,5 @@ const { size = 40, class: cls = "" } = Astro.props;
   /* gentle wiggle on hover of an ancestor marked .logo-hover */
   :global(.logo-hover:hover) .onigiri {
     transform: rotate(-4deg);
-  }
-  :root[data-theme="dark"] .rice {
-    fill: #f5ede1;
-    stroke: var(--steel-500);
-  }
-  :root[data-theme="dark"] .nori {
-    fill: #0e0a06;
-  }
-  :root[data-theme="dark"] .stripe {
-    fill: var(--racing-400);
   }
 </style>

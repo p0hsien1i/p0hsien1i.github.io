@@ -60,9 +60,8 @@ h2,
 h3 {
   font-family: var(--font-display);
   font-weight: 700;
-  font-style: italic; /* 頭文字D oblique — synthesized for CJK */
   line-height: 1.2;
-  letter-spacing: 0.01em;
+  letter-spacing: 0;
   text-wrap: balance;
 }
 h1 {
@@ -172,15 +171,12 @@ small {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  font-family: var(--font-display);
+  font-family: var(--font-sans);
   font-weight: 600;
-  font-style: italic;
   font-size: 1rem;
   line-height: 1;
-  letter-spacing: 0.03em;
-  padding: 12px 28px;
-  border-radius: 0;
-  clip-path: var(--clip-cut); /* angled racing edges */
+  padding: 12px 26px;
+  border-radius: var(--radius-sm);
   border: 1.5px solid transparent;
   cursor: pointer;
   text-decoration: none;
@@ -192,10 +188,10 @@ small {
 }
 .btn:hover {
   text-decoration: none;
-  transform: translateX(3px); /* accelerate, don't inflate */
+  transform: translateY(-1px);
 }
 .btn-primary {
-  background: linear-gradient(105deg, var(--racing-500) 0%, var(--racing-400) 100%);
+  background: var(--racing-500);
   color: var(--on-accent);
 }
 .btn-primary:hover {
@@ -218,14 +214,11 @@ small {
 .chip {
   display: inline-flex;
   align-items: center;
-  font-family: var(--font-display);
   font-size: 0.75rem;
   font-weight: 600;
-  font-style: italic;
-  letter-spacing: 0.06em;
-  padding: 4px 12px;
-  border-radius: 0;
-  clip-path: polygon(5px 0, 100% 0, calc(100% - 5px) 100%, 0 100%);
+  letter-spacing: 0.04em;
+  padding: 4px 10px;
+  border-radius: var(--radius-xs);
   background: var(--racing-100);
   color: var(--racing-800);
 }

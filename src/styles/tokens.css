@@ -78,10 +78,12 @@
   --dur-slow: 450ms;
   --dur-hero: 700ms;
 
-  /* --- fonts (Chakra Petch = techno/racing Latin; CJK falls to Noto Sans TC) --- */
-  --font-display: "Chakra Petch", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
-  --font-sans: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
-  --font-serif: "Noto Serif TC", "Noto Sans TC", "PingFang TC", serif;
+  /* --- fonts ---
+     display/prose: 霞鶩文楷 LXGW WenKai TC — 溫暖手寫楷體(標題與內文)
+     sans: Nunito(圓潤英文)+ Noto Sans TC(介面中文) */
+  --font-display: "LXGW WenKai TC", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+  --font-sans: "Nunito", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+  --font-serif: "LXGW WenKai TC", "Noto Serif TC", "PingFang TC", serif;
   --font-mono: "IBM Plex Mono", ui-monospace, "Cascadia Code", Consolas, monospace;
 }
 

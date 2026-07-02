@@ -7,7 +7,6 @@ const { variant = "light" } = Astro.props;
 
 const links = [
   { label: "LinkedIn", href: site.social.linkedin, icon: "in" },
-  { label: "Shopee 賣場", href: site.social.shopee, icon: "S" },
   { label: "Email", href: `mailto:${site.email}`, icon: "@" },
 ];
 ---
@@ -48,8 +47,8 @@ const links = [
   }
   .social-pill:hover {
     transform: translateY(-2px);
-    border-color: var(--rice-500);
-    background: var(--rice-50);
+    border-color: var(--racing-500);
+    background: var(--racing-50);
     text-decoration: none;
   }
   :root[data-theme="dark"] .social-pill:hover {
@@ -62,19 +61,19 @@ const links = [
     width: 22px;
     height: 22px;
     border-radius: var(--radius-pill);
-    background: var(--rice-400);
+    background: var(--racing-400);
     color: var(--on-accent);
     font-weight: 700;
     font-size: 0.8rem;
   }
-  /* on the dark nori footer */
+  /* on the dark asphalt footer */
   .onNori .social-pill {
     background: transparent;
-    border-color: rgba(242, 236, 224, 0.25);
-    color: #f2ece0;
+    border-color: rgba(238, 240, 244, 0.25);
+    color: #eef0f4;
   }
   .onNori .social-pill:hover {
-    background: rgba(255, 210, 76, 0.12);
-    border-color: var(--rice-400);
+    background: rgba(255, 59, 48, 0.12);
+    border-color: var(--racing-400);
   }
 </style>

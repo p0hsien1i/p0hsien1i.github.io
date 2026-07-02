@@ -1,51 +1,56 @@
 /* ============================================================
-   Design tokens — 「阿波的三角飯糰」 "Warm digital onigiri"
+   Design tokens — 「阿波的三角飯糰」 "Initial D night-run"
+   頭文字D 賽車風:柏油夜黑 × 賽車紅 × 頭燈琥珀 × 熊貓黑白。
    Raw ramps stay constant; only semantic tokens swap per theme.
    ============================================================ */
 :root {
-  /* --- brand: warm golden rice/onigiri yellow --- */
-  --rice-50: #fffbf0;
-  --rice-100: #fff4d6;
-  --rice-200: #ffe8ae;
-  --rice-300: #ffe08a;
-  --rice-400: #ffd24c; /* core brand yellow — fills/highlights only, never body text on white */
-  --rice-500: #f7b733;
-  --rice-600: #e09a1f;
-  --rice-700: #b8770f; /* accessible "yellow" text on white (~4.6:1) */
-  --rice-800: #8a5709;
-  --rice-900: #5c3a06;
+  /* --- racing: brand red (tail-light / livery stripe) --- */
+  --racing-50: #fff1f0;
+  --racing-100: #ffdedb;
+  --racing-200: #ffbdb7;
+  --racing-300: #ff8f85;
+  --racing-400: #ff3b30; /* bright tail-light red — fills/highlights */
+  --racing-500: #e10600; /* core livery red */
+  --racing-600: #c00500; /* accessible red text on white (~5.9:1) */
+  --racing-700: #9e0e0a;
+  --racing-800: #7a0b08;
+  --racing-900: #520705;
 
-  /* --- nori: seaweed dark green-charcoal --- */
-  --nori-50: #eef2ee;
-  --nori-400: #5c6e5a;
-  --nori-600: #384a38;
-  --nori-800: #1f2a1e;
-  --nori-900: #141c14;
+  /* --- asphalt: night-road gunmetal (blue-tinted charcoal) --- */
+  --asphalt-50: #eef0f4;
+  --asphalt-400: #5b6270;
+  --asphalt-600: #343a46;
+  --asphalt-800: #171b23;
+  --asphalt-900: #0d1017;
 
-  /* --- ume: umeboshi/salmon coral accent --- */
-  --ume-300: #ffb3a7;
-  --ume-500: #f2745c;
-  --ume-700: #c24a33;
+  /* --- amber: headlight / hazard accent --- */
+  --amber-300: #ffd166;
+  --amber-500: #ffb020;
+  --amber-700: #9a5b00;
 
-  /* --- ink: warm-tinted neutrals --- */
-  --ink-50: #faf8f4;
-  --ink-100: #f2eee6;
-  --ink-200: #e5dfd3;
-  --ink-300: #cfc7b8;
-  --ink-400: #a8a090;
-  --ink-500: #7c7466;
-  --ink-600: #5a5347;
-  --ink-700: #3e3930;
-  --ink-800: #2a2620;
-  --ink-900: #1a1712;
+  /* --- steel: cool pit-lane neutrals --- */
+  --steel-50: #f7f8fa;
+  --steel-100: #eef0f3;
+  --steel-200: #e0e3e9;
+  --steel-300: #c3c8d2;
+  --steel-400: #99a0ad;
+  --steel-500: #6f7684;
+  --steel-600: #515766;
+  --steel-700: #3a3f4b;
+  --steel-800: #262a33;
+  --steel-900: #15181f;
 
-  /* --- radius --- */
-  --radius-xs: 6px;
-  --radius-sm: 10px;
-  --radius-md: 16px;
-  --radius-lg: 24px;
-  --radius-xl: 32px;
+  /* --- radius (sharper, machined edges) --- */
+  --radius-xs: 3px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
   --radius-pill: 999px;
+
+  /* --- racing cut: angled edge for buttons/chips/badges --- */
+  --cut: 8px;
+  --clip-cut: polygon(var(--cut) 0, 100% 0, calc(100% - var(--cut)) 100%, 0 100%);
 
   /* --- spacing (4px base) --- */
   --space-1: 4px;
@@ -73,74 +78,74 @@
   --dur-slow: 450ms;
   --dur-hero: 700ms;
 
-  /* --- fonts --- */
-  --font-display: "Klee One", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+  /* --- fonts (Chakra Petch = techno/racing Latin; CJK falls to Noto Sans TC) --- */
+  --font-display: "Chakra Petch", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
   --font-sans: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
   --font-serif: "Noto Serif TC", "Noto Sans TC", "PingFang TC", serif;
   --font-mono: "IBM Plex Mono", ui-monospace, "Cascadia Code", Consolas, monospace;
 }
 
-/* ===== LIGHT (default) ===== */
+/* ===== LIGHT (default) — "day touge" panda white ===== */
 :root,
 :root[data-theme="light"] {
   color-scheme: light;
-  --bg: #fffdf8; /* warm rice-paper off-white */
-  --bg-subtle: #faf8f4;
+  --bg: #f7f8fa; /* cool pit-lane white */
+  --bg-subtle: #eef0f3;
   --surface: #ffffff;
   --surface-elevated: #ffffff;
-  --surface-sunken: #f2eee6;
-  --border: #e5dfd3;
-  --border-strong: #cfc7b8;
-  --text: #2a2620;
-  --text-muted: #7c7466;
-  --text-faint: #a8a090;
-  --accent: #ffd24c;
-  --accent-text: #b8770f; /* yellow as readable text */
-  --on-accent: #1a1712; /* ink on yellow fill (~12:1) */
+  --surface-sunken: #e0e3e9;
+  --border: #e0e3e9;
+  --border-strong: #c3c8d2;
+  --text: #15181f;
+  --text-muted: #515766;
+  --text-faint: #99a0ad;
+  --accent: #e10600;
+  --accent-text: #c00500; /* red as readable text */
+  --on-accent: #ffffff; /* white on livery red */
 
   /* semantic — Taiwan market: red = up/buy, green = down/sell */
   --up: #e03131;
   --down: #2f9e44;
-  --flat: #7c7466;
-  --info: #1c7ed6;
-  --warning: #f7b733;
-  --danger: #e03131;
+  --flat: #6f7684;
+  --info: #1c63d6;
+  --warning: #ffb020;
+  --danger: #e10600;
 
-  /* warm-tinted shadows */
-  --shadow-1: 0 1px 2px rgba(74, 56, 20, 0.06), 0 1px 3px rgba(74, 56, 20, 0.08);
-  --shadow-2: 0 2px 6px rgba(74, 56, 20, 0.07), 0 6px 16px rgba(74, 56, 20, 0.08);
-  --shadow-3: 0 8px 20px rgba(74, 56, 20, 0.1), 0 16px 32px rgba(74, 56, 20, 0.1);
-  --shadow-4: 0 12px 32px rgba(74, 56, 20, 0.14);
-  --glow-accent: 0 4px 16px rgba(255, 210, 76, 0.35);
+  /* cool machined shadows */
+  --shadow-1: 0 1px 2px rgba(13, 16, 23, 0.06), 0 1px 3px rgba(13, 16, 23, 0.08);
+  --shadow-2: 0 2px 6px rgba(13, 16, 23, 0.07), 0 6px 16px rgba(13, 16, 23, 0.08);
+  --shadow-3: 0 8px 20px rgba(13, 16, 23, 0.1), 0 16px 32px rgba(13, 16, 23, 0.1);
+  --shadow-4: 0 12px 32px rgba(13, 16, 23, 0.16);
+  --glow-accent: 0 4px 18px rgba(225, 6, 0, 0.3);
 }
 
-/* ===== DARK (warm charcoal-brown, not pure black) ===== */
+/* ===== DARK — "night run" 秋名山夜道 ===== */
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --bg: #1a1611;
-  --bg-subtle: #211c16;
-  --surface: #262019;
-  --surface-elevated: #2f2820;
-  --surface-sunken: #15110d;
-  --border: #39322a;
-  --border-strong: #4a4239;
-  --text: #f2ece0;
-  --text-muted: #b5ac9c;
-  --text-faint: #8a8070;
-  --accent: #ffd24c;
-  --accent-text: #ffe08a; /* yellow pops on dark */
-  --on-accent: #1a1712;
+  --bg: #0c0e13;
+  --bg-subtle: #10131a;
+  --surface: #14181f;
+  --surface-elevated: #1a1f29;
+  --surface-sunken: #080a0e;
+  --border: #262c38;
+  --border-strong: #39414f;
+  --text: #eef0f4;
+  --text-muted: #9aa2b1;
+  --text-faint: #6b7382;
+  --accent: #ff3b30;
+  --accent-text: #ff6b62; /* tail-light red pops on dark */
+  --on-accent: #ffffff;
 
   --up: #ff6b6b;
   --down: #69db7c;
-  --flat: #a8a090;
+  --flat: #99a0ad;
   --info: #4dabf7;
-  --warning: #ffd24c;
-  --danger: #ff6b6b;
+  --warning: #ffd166;
+  --danger: #ff6b62;
 
   --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
   --shadow-2: 0 2px 8px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.04);
   --shadow-3: 0 10px 28px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.05);
   --shadow-4: 0 14px 36px rgba(0, 0, 0, 0.55);
-  --glow-accent: 0 4px 18px rgba(255, 210, 76, 0.28);
+  --glow-accent: 0 4px 20px rgba(255, 59, 48, 0.4);
 }

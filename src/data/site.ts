@@ -13,9 +13,10 @@ export const site = {
   email: "pohsienbrianli@gmail.com",
   roles: ["藥師", "定量藥理", "業餘交易"],
   social: {
-    linkedin: "https://www.linkedin.com/in/phbrianli/",
-    shopee: "https://shopee.tw/brianlee0001",
+    linkedin: "https://www.linkedin.com/in/p0hsien1i/",
   },
+  /* 留言 API(Cloudflare Worker)— 部署後如網址不同,改這裡即可 */
+  commentsEndpoint: "https://apo-comments.pohsienbrianli.workers.dev",
 };
 
 // Home single-page anchors + blog link

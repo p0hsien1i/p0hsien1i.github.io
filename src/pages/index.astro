@@ -122,7 +122,6 @@ const latest = (await getCollection("blog"))
           <h2 class="section-title">聯絡阿波</h2>
           <p class="connect-p">有任何想聊的、合作邀約,歡迎透過以下方式找我,我會盡快回覆。</p>
           <SocialLinks />
-          <a class="btn btn-primary mailbtn" href={`mailto:${site.email}`}>寄信給阿波 ✉</a>
         </div>
       </div>
     </section>
@@ -225,8 +224,5 @@ const latest = (await getCollection("blog"))
   .connect-p {
     color: var(--text-muted);
     max-width: 50ch;
-  }
-  .mailbtn {
-    margin-top: var(--space-2);
   }
 </style>

@@ -23,7 +23,7 @@ const gaInline = `window.dataLayer=window.dataLayer||[];function gtag(){dataLaye
 ---
 
 <!doctype html>
-<html lang="zh-Hant">
+<html lang="zh-Hant" data-theme="dark">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -59,18 +59,9 @@ const gaInline = `window.dataLayer=window.dataLayer||[];function gtag(){dataLaye
       />
     </noscript>
 
-    <!-- No-flash theme init (runs before paint) -->
+    <!-- Site is dark-only; just flag JS availability for scroll-reveal -->
     <script is:inline>
-      (function () {
-        document.documentElement.classList.add("js");
-        try {
-          var t = localStorage.getItem("theme");
-          var d = t || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
-          document.documentElement.dataset.theme = d;
-        } catch (e) {
-          document.documentElement.dataset.theme = "light";
-        }
-      })();
+      document.documentElement.classList.add("js");
     </script>
 
     <!-- Google Analytics (production only) -->

@@ -43,17 +43,10 @@ const { id, title, subtitle, viewAll, viewAllLabel = "看全部 →" } = Astro.p
     position: absolute;
     left: 0;
     bottom: 0;
-    width: 64px;
-    height: 5px;
-    clip-path: polygon(0 0, 100% 0, calc(100% - 5px) 100%, 5px 100%);
-    background: linear-gradient(
-      100deg,
-      var(--racing-500) 0 62%,
-      transparent 62% 70%,
-      var(--racing-500) 70% 82%,
-      transparent 82% 88%,
-      var(--racing-500) 88% 100%
-    );
+    width: 48px;
+    height: 3px;
+    border-radius: var(--radius-pill);
+    background: var(--racing-500);
   }
   .section-sub {
     margin-top: var(--space-3);

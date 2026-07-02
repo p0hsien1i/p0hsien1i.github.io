@@ -40,17 +40,13 @@
   --steel-800: #2b2620;
   --steel-900: #1a1611;
 
-  /* --- radius (sharper, machined edges) --- */
-  --radius-xs: 3px;
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
-  --radius-xl: 20px;
+  /* --- radius (soft, friendly curves) --- */
+  --radius-xs: 6px;
+  --radius-sm: 10px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --radius-xl: 32px;
   --radius-pill: 999px;
-
-  /* --- racing cut: angled edge for buttons/chips/badges --- */
-  --cut: 8px;
-  --clip-cut: polygon(var(--cut) 0, 100% 0, calc(100% - var(--cut)) 100%, 0 100%);
 
   /* --- spacing (4px base) --- */
   --space-1: 4px;
@@ -79,11 +75,11 @@
   --dur-hero: 700ms;
 
   /* --- fonts ---
-     display/prose: 霞鶩文楷 LXGW WenKai TC — 溫暖手寫楷體(標題與內文)
-     sans: Nunito(圓潤英文)+ Noto Sans TC(介面中文) */
+     標題: 霞鶩文楷(手寫溫度) / 內文: Lora + 思源宋體(書卷氣、長文易讀)
+     介面: Nunito(圓潤英文)+ Noto Sans TC */
   --font-display: "LXGW WenKai TC", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
   --font-sans: "Nunito", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
-  --font-serif: "LXGW WenKai TC", "Noto Serif TC", "PingFang TC", serif;
+  --font-serif: "Lora", "Noto Serif TC", "PingFang TC", Georgia, serif;
   --font-mono: "IBM Plex Mono", ui-monospace, "Cascadia Code", Consolas, monospace;
 }
 

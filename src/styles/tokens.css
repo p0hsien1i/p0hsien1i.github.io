@@ -16,29 +16,29 @@
   --racing-800: #7a0b08;
   --racing-900: #520705;
 
-  /* --- asphalt: night-road gunmetal (blue-tinted charcoal) --- */
-  --asphalt-50: #eef0f4;
-  --asphalt-400: #5b6270;
-  --asphalt-600: #343a46;
-  --asphalt-800: #171b23;
-  --asphalt-900: #0d1017;
+  /* --- asphalt: dusk tarmac (warm brown-charcoal, sodium-lamp night) --- */
+  --asphalt-50: #f4f1ec;
+  --asphalt-400: #6e6354;
+  --asphalt-600: #453c31;
+  --asphalt-800: #241e17;
+  --asphalt-900: #15100b;
 
-  /* --- amber: headlight / hazard accent --- */
+  /* --- amber: sodium streetlight / headlight accent --- */
   --amber-300: #ffd166;
   --amber-500: #ffb020;
   --amber-700: #9a5b00;
 
-  /* --- steel: cool pit-lane neutrals --- */
-  --steel-50: #f7f8fa;
-  --steel-100: #eef0f3;
-  --steel-200: #e0e3e9;
-  --steel-300: #c3c8d2;
-  --steel-400: #99a0ad;
-  --steel-500: #6f7684;
-  --steel-600: #515766;
-  --steel-700: #3a3f4b;
-  --steel-800: #262a33;
-  --steel-900: #15181f;
+  /* --- steel: warm gunmetal neutrals --- */
+  --steel-50: #faf8f4;
+  --steel-100: #f2eee6;
+  --steel-200: #e5ddcf;
+  --steel-300: #d0c5b2;
+  --steel-400: #a89c87;
+  --steel-500: #7d7260;
+  --steel-600: #5c5344;
+  --steel-700: #403a2f;
+  --steel-800: #2b2620;
+  --steel-900: #1a1611;
 
   /* --- radius (sharper, machined edges) --- */
   --radius-xs: 3px;
@@ -85,20 +85,20 @@
   --font-mono: "IBM Plex Mono", ui-monospace, "Cascadia Code", Consolas, monospace;
 }
 
-/* ===== LIGHT (default) — "day touge" panda white ===== */
+/* ===== LIGHT (default) — "sunset touge" warm ivory ===== */
 :root,
 :root[data-theme="light"] {
   color-scheme: light;
-  --bg: #f7f8fa; /* cool pit-lane white */
-  --bg-subtle: #eef0f3;
-  --surface: #ffffff;
+  --bg: #faf7f0; /* warm ivory, late-afternoon light */
+  --bg-subtle: #f4efe6;
+  --surface: #fffdf8;
   --surface-elevated: #ffffff;
-  --surface-sunken: #e0e3e9;
-  --border: #e0e3e9;
-  --border-strong: #c3c8d2;
-  --text: #15181f;
-  --text-muted: #515766;
-  --text-faint: #99a0ad;
+  --surface-sunken: #ece4d6;
+  --border: #e5dccb;
+  --border-strong: #d0c5b2;
+  --text: #241e17;
+  --text-muted: #5c5344;
+  --text-faint: #a89c87;
   --accent: #e10600;
   --accent-text: #c00500; /* red as readable text */
   --on-accent: #ffffff; /* white on livery red */
@@ -106,42 +106,42 @@
   /* semantic — Taiwan market: red = up/buy, green = down/sell */
   --up: #e03131;
   --down: #2f9e44;
-  --flat: #6f7684;
+  --flat: #7d7260;
   --info: #1c63d6;
   --warning: #ffb020;
   --danger: #e10600;
 
-  /* cool machined shadows */
-  --shadow-1: 0 1px 2px rgba(13, 16, 23, 0.06), 0 1px 3px rgba(13, 16, 23, 0.08);
-  --shadow-2: 0 2px 6px rgba(13, 16, 23, 0.07), 0 6px 16px rgba(13, 16, 23, 0.08);
-  --shadow-3: 0 8px 20px rgba(13, 16, 23, 0.1), 0 16px 32px rgba(13, 16, 23, 0.1);
-  --shadow-4: 0 12px 32px rgba(13, 16, 23, 0.16);
-  --glow-accent: 0 4px 18px rgba(225, 6, 0, 0.3);
+  /* warm dusk shadows */
+  --shadow-1: 0 1px 2px rgba(58, 42, 20, 0.06), 0 1px 3px rgba(58, 42, 20, 0.08);
+  --shadow-2: 0 2px 6px rgba(58, 42, 20, 0.07), 0 6px 16px rgba(58, 42, 20, 0.08);
+  --shadow-3: 0 8px 20px rgba(58, 42, 20, 0.1), 0 16px 32px rgba(58, 42, 20, 0.1);
+  --shadow-4: 0 12px 32px rgba(58, 42, 20, 0.16);
+  --glow-accent: 0 4px 18px rgba(225, 6, 0, 0.28);
 }
 
-/* ===== DARK — "night run" 秋名山夜道 ===== */
+/* ===== DARK — "night run" 鈉燈暖橘的秋名山夜道 ===== */
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --bg: #0c0e13;
-  --bg-subtle: #10131a;
-  --surface: #14181f;
-  --surface-elevated: #1a1f29;
-  --surface-sunken: #080a0e;
-  --border: #262c38;
-  --border-strong: #39414f;
-  --text: #eef0f4;
-  --text-muted: #9aa2b1;
-  --text-faint: #6b7382;
-  --accent: #ff3b30;
-  --accent-text: #ff6b62; /* tail-light red pops on dark */
+  --bg: #16110c;
+  --bg-subtle: #1a140e;
+  --surface: #201913;
+  --surface-elevated: #281f17;
+  --surface-sunken: #0e0a06;
+  --border: #3a2f24;
+  --border-strong: #4c3f30;
+  --text: #f5ede1;
+  --text-muted: #b3a691;
+  --text-faint: #857863;
+  --accent: #ff4530;
+  --accent-text: #ff8a70; /* warm tail-light red on dark */
   --on-accent: #ffffff;
 
   --up: #ff6b6b;
   --down: #69db7c;
-  --flat: #99a0ad;
+  --flat: #a89c87;
   --info: #4dabf7;
   --warning: #ffd166;
-  --danger: #ff6b62;
+  --danger: #ff8a70;
 
   --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
   --shadow-2: 0 2px 8px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.04);

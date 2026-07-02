@@ -1,0 +1,220 @@
+---
+// 免登入留言區:留言由 Cloudflare Worker 寫進 repo 的 src/data/comments/<slug>/,
+// 推上 main 後觸發重新部署,留言就會出現(約 2–3 分鐘)。
+import { site } from "../data/site";
+
+interface Props {
+  slug: string;
+}
+const { slug } = Astro.props;
+
+type Comment = { name: string; message: string; date: string };
+const files = import.meta.glob<{ default: Comment }>("../data/comments/**/*.json", {
+  eager: true,
+});
+const comments = Object.entries(files)
+  .filter(([path]) => path.includes(`/comments/${slug}/`))
+  .map(([, mod]) => mod.default)
+  .sort((a, b) => new Date(a.date).valueOf() - new Date(b.date).valueOf());
+
+const fmtDate = (iso: string) =>
+  new Date(iso).toLocaleString("zh-TW", {
+    timeZone: "Asia/Taipei",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+---
+
+<section class="comments" aria-label="留言區">
+  <h2 class="c-title">留言板</h2>
+
+  {
+    comments.length > 0 ? (
+      <ol class="c-list">
+        {comments.map((c) => (
+          <li class="c-item">
+            <div class="c-head">
+              <span class="c-name">{c.name}</span>
+              <time class="c-date" datetime={c.date}>
+                {fmtDate(c.date)}
+              </time>
+            </div>
+            <p class="c-msg">{c.message}</p>
+          </li>
+        ))}
+      </ol>
+    ) : (
+      <p class="c-empty">還沒有留言,搶頭香!</p>
+    )
+  }
+
+  <form id="comment-form" class="c-form" data-slug={slug} data-endpoint={site.commentsEndpoint}>
+    <div class="c-row">
+      <label for="c-name-input">名稱</label>
+      <input id="c-name-input" name="name" type="text" required maxlength="50" placeholder="怎麼稱呼你?" autocomplete="nickname" />
+    </div>
+    <div class="c-row">
+      <label for="c-msg-input">留言內容</label>
+      <textarea id="c-msg-input" name="message" required maxlength="1000" rows="4" placeholder="說點什麼吧…"></textarea>
+    </div>
+    <!-- honeypot:真人看不到也不會填;機器人填了就直接丟棄 -->
+    <div class="c-hp" aria-hidden="true">
+      <label for="c-website">網站</label>
+      <input id="c-website" name="website" type="text" tabindex="-1" autocomplete="off" />
+    </div>
+    <div class="c-actions">
+      <button class="btn btn-primary" type="submit">送出留言 →</button>
+      <p class="c-status" role="status" aria-live="polite"></p>
+    </div>
+  </form>
+</section>
+
+<style>
+  .comments {
+    margin-top: var(--space-7);
+    padding-top: var(--space-6);
+    border-top: 1px solid var(--border);
+  }
+  .c-title {
+    font-size: 1.375rem;
+    margin-bottom: var(--space-5);
+  }
+  .c-list {
+    list-style: none;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    margin-bottom: var(--space-6);
+  }
+  .c-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-inline-start: 3px solid var(--racing-500);
+    border-radius: var(--radius-sm);
+    padding: var(--space-4);
+  }
+  .c-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-3);
+    margin-bottom: var(--space-2);
+  }
+  .c-name {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-weight: 600;
+  }
+  .c-date {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--text-faint);
+  }
+  .c-msg {
+    white-space: pre-wrap;
+    line-height: 1.8;
+    font-size: 0.975rem;
+  }
+  .c-empty {
+    color: var(--text-muted);
+    margin-bottom: var(--space-5);
+  }
+  .c-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+  .c-row {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+  .c-row label {
+    font-weight: 600;
+    font-size: 0.9rem;
+  }
+  .c-row input,
+  .c-row textarea {
+    font: inherit;
+    color: var(--text);
+    background: var(--surface);
+    border: 1.5px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    padding: 10px 14px;
+    transition: border-color var(--dur-fast) var(--ease-out);
+  }
+  .c-row input:focus,
+  .c-row textarea:focus {
+    outline: none;
+    border-color: var(--racing-500);
+  }
+  .c-row textarea {
+    resize: vertical;
+    min-height: 96px;
+  }
+  .c-hp {
+    position: absolute;
+    left: -9999px;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+  }
+  .c-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    flex-wrap: wrap;
+  }
+  .c-status {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+  }
+  .c-status.ok {
+    color: var(--down);
+  }
+  .c-status.err {
+    color: var(--danger);
+  }
+</style>
+
+<script>
+  const form = document.getElementById("comment-form") as HTMLFormElement | null;
+  if (form) {
+    const status = form.querySelector(".c-status") as HTMLElement;
+    const btn = form.querySelector("button[type=submit]") as HTMLButtonElement;
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const fd = new FormData(form);
+      const payload = {
+        slug: form.dataset.slug,
+        name: String(fd.get("name") || "").trim(),
+        message: String(fd.get("message") || "").trim(),
+        website: String(fd.get("website") || ""),
+      };
+      if (!payload.name || !payload.message) return;
+      btn.disabled = true;
+      status.className = "c-status";
+      status.textContent = "送出中…";
+      try {
+        const res = await fetch(form.dataset.endpoint!, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) throw new Error(String(res.status));
+        status.className = "c-status ok";
+        status.textContent = "留言已送出!網站更新後就會顯示(約 2–3 分鐘)🏁";
+        form.reset();
+      } catch {
+        status.className = "c-status err";
+        status.textContent = "送出失敗,請稍後再試,或直接寄信給阿波。";
+        btn.disabled = false;
+      }
+    });
+  }
+</script>

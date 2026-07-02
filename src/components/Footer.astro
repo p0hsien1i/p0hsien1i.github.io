@@ -35,12 +35,13 @@ const year = new Date().getFullYear();
 <style>
   .footer {
     margin-top: var(--space-10);
-    background: var(--nori-800);
-    color: #f2ece0;
+    background: var(--asphalt-800);
+    color: #eef0f4;
     padding-top: var(--space-8);
+    border-top: 3px solid var(--racing-500); /* livery stripe */
   }
   :root[data-theme="dark"] .footer {
-    background: var(--nori-900);
+    background: var(--asphalt-900);
   }
   .footer-inner {
     display: grid;
@@ -62,7 +63,7 @@ const year = new Date().getFullYear();
   }
   .blurb {
     margin-top: var(--space-3);
-    color: rgba(242, 236, 224, 0.72);
+    color: rgba(238, 240, 244, 0.72);
     font-size: 0.95rem;
     line-height: 1.8;
     max-width: 40ch;
@@ -78,11 +79,11 @@ const year = new Date().getFullYear();
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: var(--rice-300);
+    color: var(--racing-300);
     margin-bottom: var(--space-2);
   }
   nav.col a {
-    color: rgba(242, 236, 224, 0.82);
+    color: rgba(238, 240, 244, 0.82);
     text-decoration: none;
     font-size: 0.95rem;
     width: fit-content;
@@ -99,13 +100,13 @@ const year = new Date().getFullYear();
     align-items: center;
     padding-top: var(--space-4);
     padding-bottom: var(--space-5);
-    border-top: 1px solid rgba(242, 236, 224, 0.14);
+    border-top: 1px solid rgba(238, 240, 244, 0.14);
     font-family: var(--font-mono);
     font-size: 0.8rem;
-    color: rgba(242, 236, 224, 0.6);
+    color: rgba(238, 240, 244, 0.6);
   }
   .totop {
-    color: var(--rice-300);
+    color: var(--racing-300);
     text-decoration: none;
   }
   .totop:hover {

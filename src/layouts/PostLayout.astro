@@ -3,6 +3,7 @@ import BaseLayout from "./BaseLayout.astro";
 import Nav from "../components/Nav.astro";
 import Footer from "../components/Footer.astro";
 import CategoryBadge from "../components/CategoryBadge.astro";
+import Comments from "../components/Comments.astro";
 import FoodReviewMeta from "../components/FoodReviewMeta.astro";
 import YouTubeEmbed from "../components/YouTubeEmbed.astro";
 import { Image } from "astro:assets";
@@ -48,6 +49,8 @@ const ytId = (s: string) => {
         </div>
       )
     }
+
+    <Comments slug={post.id} />
 
     <div class="post-foot">
       <a class="back" href="/blog">← 回部落格</a>

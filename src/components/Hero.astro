@@ -12,6 +12,7 @@ import { site } from "../data/site";
 
   <div class="container hero-inner">
     <div class="hero-logo logo-hover"><Logo size={132} /></div>
+    <p class="hero-eyebrow" aria-hidden="true">// {site.nameEn.toUpperCase()} //</p>
     <h1 class="hero-title">{site.name}</h1>
     <p class="hero-name">{site.author} ｜ {site.authorAka}</p>
     <div class="roles">
@@ -23,6 +24,8 @@ import { site } from "../data/site";
       <a class="btn btn-secondary" href="#connect">聯絡阿波</a>
     </div>
   </div>
+
+  <div class="checker-strip" aria-hidden="true"></div>
 
   <a class="scroll-cue" href="#about" aria-label="往下捲動">
     <span aria-hidden="true">▾</span>
@@ -38,13 +41,39 @@ import { site } from "../data/site";
     align-items: center;
     text-align: center;
     background:
-      radial-gradient(120% 90% at 50% -10%, var(--rice-50), transparent 60%),
+      radial-gradient(120% 90% at 50% -10%, rgba(225, 6, 0, 0.06), transparent 60%),
       var(--bg);
+  }
+  /* speed lines — angled streaks sweeping across the tarmac */
+  .hero::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: repeating-linear-gradient(
+      115deg,
+      transparent 0 140px,
+      rgba(21, 24, 31, 0.035) 140px 142px,
+      transparent 142px 260px,
+      rgba(225, 6, 0, 0.05) 260px 263px,
+      transparent 263px 420px
+    );
   }
   :root[data-theme="dark"] .hero {
     background:
-      radial-gradient(120% 90% at 50% -10%, rgba(255, 210, 76, 0.08), transparent 60%),
-      linear-gradient(180deg, var(--nori-900), var(--bg) 55%);
+      radial-gradient(90% 60% at 78% 0%, rgba(255, 59, 48, 0.14), transparent 55%),
+      radial-gradient(70% 50% at 12% 12%, rgba(255, 176, 32, 0.07), transparent 60%),
+      linear-gradient(180deg, #05070b, var(--bg) 62%);
+  }
+  :root[data-theme="dark"] .hero::before {
+    background: repeating-linear-gradient(
+      115deg,
+      transparent 0 140px,
+      rgba(238, 240, 244, 0.045) 140px 142px,
+      transparent 142px 260px,
+      rgba(255, 59, 48, 0.1) 260px 263px,
+      transparent 263px 420px
+    );
   }
   .bg-triangle {
     position: absolute;
@@ -52,8 +81,8 @@ import { site } from "../data/site";
     height: auto;
     right: -12%;
     top: 8%;
-    opacity: 0.06;
-    color: var(--rice-400);
+    opacity: 0.05;
+    color: var(--racing-500);
     fill: currentColor;
     pointer-events: none;
     transform: rotate(8deg);
@@ -69,9 +98,21 @@ import { site } from "../data/site";
   .hero-logo {
     animation: pop var(--dur-hero) var(--ease-spring) both;
   }
+  .hero-eyebrow {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-weight: 600;
+    font-size: 0.85rem;
+    letter-spacing: 0.32em;
+    color: var(--racing-500);
+    margin-top: var(--space-3);
+  }
+  :root[data-theme="dark"] .hero-eyebrow {
+    color: var(--racing-300);
+  }
   .hero-title {
     font-size: clamp(2.25rem, 1.5rem + 3.4vw, 3.5rem);
-    margin-top: var(--space-2);
+    margin-top: var(--space-1);
   }
   .hero-name {
     color: var(--text-muted);
@@ -85,16 +126,19 @@ import { site } from "../data/site";
     margin-block: var(--space-2);
   }
   .role-chip {
-    padding: 4px 14px;
-    border-radius: var(--radius-pill);
-    background: var(--rice-100);
-    color: var(--rice-800);
+    font-family: var(--font-display);
+    font-style: italic;
+    padding: 4px 16px;
+    clip-path: polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%);
+    background: var(--racing-100);
+    color: var(--racing-800);
     font-size: 0.85rem;
     font-weight: 600;
+    letter-spacing: 0.05em;
   }
   :root[data-theme="dark"] .role-chip {
-    background: rgba(255, 210, 76, 0.14);
-    color: var(--rice-300);
+    background: rgba(255, 59, 48, 0.14);
+    color: var(--racing-300);
   }
   .hero-tagline {
     max-width: 46ch;
@@ -109,15 +153,33 @@ import { site } from "../data/site";
     justify-content: center;
     margin-top: var(--space-5);
   }
+  /* finish-line checker strip along the hero's bottom edge */
+  .checker-strip {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 12px;
+    background: repeating-conic-gradient(var(--steel-900) 0% 25%, transparent 0% 50%) 0 0 / 24px 24px;
+    opacity: 0.16;
+    pointer-events: none;
+  }
+  :root[data-theme="dark"] .checker-strip {
+    background: repeating-conic-gradient(#eef0f4 0% 25%, transparent 0% 50%) 0 0 / 24px 24px;
+    opacity: 0.1;
+  }
   .scroll-cue {
     position: absolute;
     bottom: var(--space-5);
     left: 50%;
     transform: translateX(-50%);
-    color: var(--rice-600);
+    color: var(--racing-500);
     font-size: 1.5rem;
     text-decoration: none;
     animation: bounce 1.8s var(--ease-in-out) infinite;
+  }
+  :root[data-theme="dark"] .scroll-cue {
+    color: var(--racing-300);
   }
   @keyframes pop {
     from {

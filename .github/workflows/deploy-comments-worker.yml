@@ -1,0 +1,26 @@
+name: Deploy comments worker
+
+# 手動觸發(Actions 頁面按 Run workflow,或由 API 觸發)。
+# 需要先在 repo Settings → Secrets and variables → Actions 設定:
+#   CLOUDFLARE_API_TOKEN   — Cloudflare「編輯 Cloudflare Workers」範本權杖
+#   CLOUDFLARE_ACCOUNT_ID  — Cloudflare 帳號 ID
+#   COMMENTS_GITHUB_TOKEN  — fine-grained PAT(只限本 repo,Contents: Read and write)
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Deploy worker to Cloudflare
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: workers/comments
+          secrets: |
+            GITHUB_TOKEN
+        env:
+          GITHUB_TOKEN: ${{ secrets.COMMENTS_GITHUB_TOKEN }}

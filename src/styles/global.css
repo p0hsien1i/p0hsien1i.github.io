@@ -214,6 +214,7 @@ small {
 .chip {
   display: inline-flex;
   align-items: center;
+  width: fit-content; /* don't stretch inside flex-column cards */
   font-size: 0.75rem;
   font-weight: 600;
   letter-spacing: 0.04em;

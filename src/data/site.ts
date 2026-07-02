@@ -22,7 +22,6 @@ export const site = {
 export const navLinks: NavLink[] = [
   { label: "關於", href: "/#about" },
   { label: "部落格", href: "/blog" },
-  { label: "藥師 Murmur", href: "/#pharmacist" },
   { label: "投資", href: "/#invest" },
   { label: "影音", href: "/#videos" },
   { label: "配音", href: "/#voice" },

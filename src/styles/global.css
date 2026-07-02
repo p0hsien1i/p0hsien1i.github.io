@@ -176,7 +176,7 @@ small {
   font-size: 1rem;
   line-height: 1;
   padding: 12px 26px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-pill);
   border: 1.5px solid transparent;
   cursor: pointer;
   text-decoration: none;
@@ -218,7 +218,7 @@ small {
   font-weight: 600;
   letter-spacing: 0.04em;
   padding: 4px 10px;
-  border-radius: var(--radius-xs);
+  border-radius: var(--radius-pill);
   background: var(--racing-100);
   color: var(--racing-800);
 }

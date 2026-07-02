@@ -41,7 +41,8 @@ import { site } from "../data/site";
     align-items: center;
     text-align: center;
     background:
-      radial-gradient(120% 90% at 50% -10%, rgba(225, 6, 0, 0.06), transparent 60%),
+      radial-gradient(120% 90% at 50% -10%, rgba(255, 176, 32, 0.12), transparent 60%),
+      radial-gradient(80% 60% at 85% 20%, rgba(225, 6, 0, 0.05), transparent 55%),
       var(--bg);
   }
   /* speed lines — angled streaks sweeping across the tarmac */
@@ -53,25 +54,26 @@ import { site } from "../data/site";
     background: repeating-linear-gradient(
       115deg,
       transparent 0 140px,
-      rgba(21, 24, 31, 0.035) 140px 142px,
+      rgba(43, 38, 32, 0.04) 140px 142px,
       transparent 142px 260px,
       rgba(225, 6, 0, 0.05) 260px 263px,
       transparent 263px 420px
     );
   }
   :root[data-theme="dark"] .hero {
+    /* 鈉燈暖橘 — sodium streetlight over the touge */
     background:
-      radial-gradient(90% 60% at 78% 0%, rgba(255, 59, 48, 0.14), transparent 55%),
-      radial-gradient(70% 50% at 12% 12%, rgba(255, 176, 32, 0.07), transparent 60%),
-      linear-gradient(180deg, #05070b, var(--bg) 62%);
+      radial-gradient(90% 65% at 72% -5%, rgba(255, 176, 32, 0.18), transparent 58%),
+      radial-gradient(70% 50% at 8% 18%, rgba(255, 69, 48, 0.1), transparent 60%),
+      linear-gradient(180deg, #0a0705, var(--bg) 62%);
   }
   :root[data-theme="dark"] .hero::before {
     background: repeating-linear-gradient(
       115deg,
       transparent 0 140px,
-      rgba(238, 240, 244, 0.045) 140px 142px,
+      rgba(255, 209, 102, 0.05) 140px 142px,
       transparent 142px 260px,
-      rgba(255, 59, 48, 0.1) 260px 263px,
+      rgba(255, 69, 48, 0.1) 260px 263px,
       transparent 263px 420px
     );
   }
@@ -108,7 +110,7 @@ import { site } from "../data/site";
     margin-top: var(--space-3);
   }
   :root[data-theme="dark"] .hero-eyebrow {
-    color: var(--racing-300);
+    color: var(--amber-300); /* sodium-lamp amber */
   }
   .hero-title {
     font-size: clamp(2.25rem, 1.5rem + 3.4vw, 3.5rem);
@@ -165,7 +167,7 @@ import { site } from "../data/site";
     pointer-events: none;
   }
   :root[data-theme="dark"] .checker-strip {
-    background: repeating-conic-gradient(#eef0f4 0% 25%, transparent 0% 50%) 0 0 / 24px 24px;
+    background: repeating-conic-gradient(#f5ede1 0% 25%, transparent 0% 50%) 0 0 / 24px 24px;
     opacity: 0.1;
   }
   .scroll-cue {

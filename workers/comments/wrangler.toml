@@ -1,0 +1,7 @@
+# apo-comments worker 部署設定(由 .github/workflows/deploy-comments-worker.yml 使用)
+name = "apo-comments"
+main = "worker.js"
+compatibility_date = "2026-01-01"
+
+[vars]
+REPO = "p0hsien1i/p0hsien1i.github.io"

@@ -6,7 +6,6 @@ import Footer from "../components/Footer.astro";
 import Hero from "../components/Hero.astro";
 import Section from "../components/Section.astro";
 import PostCard from "../components/PostCard.astro";
-import ComingSoonCard from "../components/ComingSoonCard.astro";
 import LinkCard from "../components/LinkCard.astro";
 import SocialLinks from "../components/SocialLinks.astro";
 import AudioPlayer from "../components/AudioPlayer.astro";
@@ -58,20 +57,6 @@ const latest = (await getCollection("blog"))
       }
     </Section>
 
-    <!-- Pharmacist murmur -->
-    <Section
-      id="pharmacist"
-      title="阿波藥師的 Murmur"
-      subtitle="藥師視角的臨床、用藥安全與統計筆記,籌備中。"
-    >
-      <div class="card-grid">
-        <ComingSoonCard title="2022 ADA 糖尿病指引" />
-        <ComingSoonCard title="用藥安全" />
-        <ComingSoonCard title="臨床試驗新知" />
-        <ComingSoonCard title="統計方法" />
-      </div>
-    </Section>
-
     <!-- Invest -->
     <Section
       id="invest"
@@ -90,13 +75,6 @@ const latest = (await getCollection("blog"))
       </div>
     </Section>
 
-    <!-- Sports -->
-    <Section id="sports" title="運動賽事心得" subtitle="籌備中。">
-      <div class="card-grid">
-        <ComingSoonCard title="運動賽事心得" />
-      </div>
-    </Section>
-
     <!-- Podcast -->
     <Section id="podcast" title="阿波的三角飯糰 Podcast" subtitle="在 Apple Podcasts 上聽。">
       <div class="card podcast-card">
@@ -105,10 +83,10 @@ const latest = (await getCollection("blog"))
           allow="autoplay *; encrypted-media *; fullscreen *"
           loading="lazy"
           frameborder="0"
-          height="175"
+          height="450"
           style="width:100%;max-width:660px;overflow:hidden;border-radius:12px;background:transparent;"
           sandbox="allow-forms allow-popups allow-same-origin allow-scripts allow-storage-access-by-user-activation allow-top-navigation-by-user-activation"
-          src="https://embed.podcasts.apple.com/tw/podcast/this-is-a-test/id1571017109?i=1000524376986"
+          src="https://embed.podcasts.apple.com/tw/podcast/id1571017109"
         ></iframe>
       </div>
     </Section>

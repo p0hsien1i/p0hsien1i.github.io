@@ -2,6 +2,7 @@
 name = "apo-comments"
 main = "worker.js"
 compatibility_date = "2026-01-01"
+account_id = "4c4dafb959f8ff4ffec435b07602a9b8"
 
 [vars]
 REPO = "p0hsien1i/p0hsien1i.github.io"

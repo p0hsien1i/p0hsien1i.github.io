@@ -14,24 +14,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Resolve Cloudflare account id
-        id: acct
-        run: |
-          ID="${{ secrets.CLOUDFLARE_ACCOUNT_ID }}"
-          if [ -z "$ID" ]; then
-            ID=$(curl -sS -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_API_TOKEN }}" \
-              https://api.cloudflare.com/client/v4/accounts | jq -r '.result[0].id // empty')
-          fi
-          if [ -z "$ID" ]; then
-            echo "::error::無法取得 Cloudflare Account ID,請確認 CLOUDFLARE_API_TOKEN 或加設 CLOUDFLARE_ACCOUNT_ID"
-            exit 1
-          fi
-          echo "id=$ID" >> "$GITHUB_OUTPUT"
       - name: Deploy worker to Cloudflare
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ steps.acct.outputs.id }}
+          # account_id 讀 wrangler.toml
           workingDirectory: workers/comments
           secrets: |
             GITHUB_TOKEN

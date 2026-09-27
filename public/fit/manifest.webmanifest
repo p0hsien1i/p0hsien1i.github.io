@@ -1,7 +1,7 @@
 {
   "name": "飯糰 Fit",
   "short_name": "飯糰 Fit",
-  "description": "飲食熱量記錄 + Garmin 運動匯入",
+  "description": "飲食熱量記錄",
   "lang": "zh-Hant",
   "start_url": "./",
   "scope": "./",

@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>飯糰 Fit</title>
+  <meta name="description" content="飲食熱量記錄 + Garmin 運動匯入，資料只存在你的裝置上。" />
+  <meta name="robots" content="noindex" />
+  <meta name="theme-color" content="#e10600" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="飯糰 Fit" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+  <link rel="stylesheet" href="app.css" />
+</head>
+<body>
+  <header class="topbar">
+    <button class="icon-btn" data-action="prev-day" aria-label="前一天">‹</button>
+    <button class="date-btn" data-action="pick-date"><span id="date-label">今天</span></button>
+    <input type="date" id="date-input" class="visually-hidden" tabindex="-1" aria-hidden="true" />
+    <button class="icon-btn" data-action="next-day" aria-label="後一天">›</button>
+  </header>
+
+  <main id="app">
+    <section class="view" id="view-home" data-view="home"></section>
+    <section class="view" id="view-diary" data-view="diary" hidden></section>
+    <section class="view" id="view-progress" data-view="progress" hidden></section>
+    <section class="view" id="view-garmin" data-view="garmin" hidden></section>
+    <section class="view" id="view-settings" data-view="settings" hidden></section>
+  </main>
+
+  <nav class="tabbar" aria-label="主選單">
+    <button data-tab="home" aria-current="page"><span class="ti">◉</span>總覽</button>
+    <button data-tab="diary"><span class="ti">☰</span>日記</button>
+    <button class="tab-add" data-action="add-food" aria-label="新增食物"><span>＋</span></button>
+    <button data-tab="progress"><span class="ti">↗</span>進度</button>
+    <button data-tab="settings"><span class="ti">⚙</span>設定</button>
+  </nav>
+
+  <!-- 新增食物 -->
+  <dialog id="dlg-food" class="sheet">
+    <div class="sheet-head">
+      <h2>新增食物 <small id="food-meal-label"></small></h2>
+      <button class="icon-btn" data-close aria-label="關閉">✕</button>
+    </div>
+    <form id="food-search-form" class="search-row">
+      <input id="food-q" type="search" placeholder="搜尋：雞胸肉、珍奶、7-11…" autocomplete="off" enterkeyhint="search" />
+      <button type="submit" class="btn">搜尋</button>
+    </form>
+    <div class="chip-row">
+      <button class="chip" data-action="scan">📷 掃條碼</button>
+      <button class="chip" data-action="quick-add">⚡ 快速加熱量</button>
+      <button class="chip" data-action="new-custom">＋ 自訂食物</button>
+    </div>
+    <div id="food-results" class="list"></div>
+  </dialog>
+
+  <!-- 份量 -->
+  <dialog id="dlg-qty" class="sheet">
+    <form id="qty-form" method="dialog">
+      <div class="sheet-head">
+        <h2 id="qty-title">份量</h2>
+        <button type="button" class="icon-btn" data-close aria-label="關閉">✕</button>
+      </div>
+      <p class="muted" id="qty-sub"></p>
+      <div class="grid2">
+        <label><span id="qty-unit">份數</span><input id="qty-amount" type="number" inputmode="decimal" min="0" step="any" required /></label>
+        <label>餐別<select id="qty-meal"></select></label>
+      </div>
+      <div class="macro-preview" id="qty-preview"></div>
+      <div class="btn-row">
+        <button type="button" class="btn ghost danger" id="qty-delete" hidden>刪除</button>
+        <button type="submit" class="btn primary" id="qty-submit">加入</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- 自訂食物 / 快速加入 -->
+  <dialog id="dlg-custom" class="sheet">
+    <form id="custom-form" method="dialog">
+      <div class="sheet-head">
+        <h2 id="custom-title">自訂食物</h2>
+        <button type="button" class="icon-btn" data-close aria-label="關閉">✕</button>
+      </div>
+      <label>名稱<input name="name" required placeholder="例如：媽媽的滷雞腿" /></label>
+      <label id="custom-serving-wrap">每份的描述<input name="serving" placeholder="1 份" /></label>
+      <div class="grid2">
+        <label>熱量 kcal<input name="kcal" type="number" inputmode="decimal" min="0" step="any" required /></label>
+        <label>蛋白質 g<input name="p" type="number" inputmode="decimal" min="0" step="any" /></label>
+        <label>碳水 g<input name="c" type="number" inputmode="decimal" min="0" step="any" /></label>
+        <label>脂肪 g<input name="f" type="number" inputmode="decimal" min="0" step="any" /></label>
+      </div>
+      <input type="hidden" name="mode" />
+      <div class="btn-row"><button type="submit" class="btn primary">儲存</button></div>
+    </form>
+  </dialog>
+
+  <!-- 條碼 -->
+  <dialog id="dlg-scan" class="sheet">
+    <div class="sheet-head">
+      <h2>掃描條碼</h2>
+      <button class="icon-btn" data-close aria-label="關閉">✕</button>
+    </div>
+    <video id="scan-video" playsinline muted hidden></video>
+    <p class="muted" id="scan-hint"></p>
+    <form id="barcode-form" class="search-row">
+      <input id="barcode-input" inputmode="numeric" placeholder="或手動輸入條碼數字" />
+      <button class="btn">查詢</button>
+    </form>
+  </dialog>
+
+  <!-- 運動 -->
+  <dialog id="dlg-ex" class="sheet">
+    <form id="ex-form" method="dialog">
+      <div class="sheet-head">
+        <h2>新增運動</h2>
+        <button type="button" class="icon-btn" data-close aria-label="關閉">✕</button>
+      </div>
+      <label>運動類型<select name="type" id="ex-type"></select></label>
+      <div class="grid2">
+        <label>時間（分鐘）<input name="minutes" type="number" inputmode="numeric" min="1" value="30" required /></label>
+        <label>消耗 kcal<input name="kcal" type="number" inputmode="numeric" min="0" placeholder="自動估算" /></label>
+      </div>
+      <p class="muted" id="ex-estimate"></p>
+      <div class="btn-row"><button type="submit" class="btn primary">加入</button></div>
+    </form>
+  </dialog>
+
+  <div id="toast" role="status" aria-live="polite"></div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

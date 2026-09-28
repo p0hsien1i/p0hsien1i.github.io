@@ -272,3 +272,7 @@ dialog::backdrop { background: rgb(0 0 0 / 45%); }
 .mrow.over .mrow-status { color: var(--warn); }
 .mrow .meter { margin: 6px 0 4px; }
 b.big { font-size: 1.4rem; }
+
+.checklist { list-style: none; padding: 0; margin: 10px 0; display: grid; gap: 6px; font-size: .9rem; }
+.checklist li { color: var(--muted); }
+.checklist li.done { color: var(--good); font-weight: 700; }

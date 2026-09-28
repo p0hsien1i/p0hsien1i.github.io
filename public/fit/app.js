@@ -69,6 +69,111 @@ let dataVer = 0; // 資料版本：每次儲存 +1，給計算快取用
 function save() {
   dataVer++;
   try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { toast('儲存失敗：' + e.message); }
+  scheduleBackup();
+}
+
+// ================= 雲端備份（存到自己的 Cloudflare 接收端） =================
+// 備份狀態另外存，避免「寫入備份時間」又觸發一次備份
+const CLOUD_KEY = 'fanfit:cloud';
+let cloud = { enabled: true, lastBackupAt: null, error: '' };
+try { Object.assign(cloud, JSON.parse(localStorage.getItem(CLOUD_KEY) || '{}')); } catch { /* 用預設值 */ }
+const saveCloud = () => { try { localStorage.setItem(CLOUD_KEY, JSON.stringify(cloud)); } catch { /* 忽略 */ } };
+const cloudReady = () => !!(cloud.enabled && S.health?.token && S.health?.endpoint);
+const hasLocalData = () => !!(S.entries.length || S.customFoods.length || Object.keys(S.weights).length || Object.keys(S.waists || {}).length);
+const cloudUrl = (path) => S.health.endpoint.replace(/\/+$/, '') + path;
+const cloudHeaders = () => ({ Authorization: 'Bearer ' + S.health.token });
+let backupTimer = null;
+let backupDirty = false;
+
+function scheduleBackup() {
+  if (!cloudReady()) return;
+  backupDirty = true;
+  clearTimeout(backupTimer);
+  backupTimer = setTimeout(() => cloudBackup(), 30 * 1000);
+}
+
+async function cloudBackup({ force = false, keepalive = false } = {}) {
+  if (!cloudReady()) return false;
+  if (!force && !backupDirty) return true;
+  if (!hasLocalData()) return false; // 手機是空的就不上傳，避免蓋掉雲端的好備份
+  clearTimeout(backupTimer);
+  const body = JSON.stringify({ ...S, health: { ...S.health, token: '' } });
+  try {
+    const res = await fetch(cloudUrl('/backup'), {
+      method: 'PUT', headers: { ...cloudHeaders(), 'Content-Type': 'application/json' }, body,
+      keepalive: keepalive && body.length < 60000, // keepalive 有 64KB 上限
+    });
+    if (res.status === 401) throw new Error('同步密碼不對');
+    if (res.status === 404) throw new Error('接收端還沒更新，請到 GitHub 重跑一次「Deploy health worker」');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const j = await res.json();
+    backupDirty = false;
+    cloud.lastBackupAt = j.savedAt;
+    cloud.error = '';
+  } catch (e) {
+    cloud.error = /Load failed|Failed to fetch/i.test(e.message) ? '連不到雲端（沒有網路或接收端還沒部署）' : e.message;
+  }
+  saveCloud();
+  updateCloudStatus();
+  return !cloud.error;
+}
+
+function cloudStatusText() {
+  if (!S.health?.token) return '請先在上方「⌚ Apple 健康同步」產生並儲存同步密碼，雲端備份也使用同一組。';
+  if (!cloud.enabled) return '自動備份已關閉。';
+  if (cloud.error) return '⚠️ ' + cloud.error;
+  return cloud.lastBackupAt ? `✅ 最後備份：${new Date(cloud.lastBackupAt).toLocaleString('zh-TW')}` : '還沒有備份，記錄任何東西後約 30 秒會自動備份。';
+}
+function updateCloudStatus() {
+  const el = document.querySelector('#cloud-status');
+  if (el) el.textContent = cloudStatusText();
+}
+
+async function cloudFetch(path) {
+  const res = await fetch(cloudUrl(path), { headers: cloudHeaders(), cache: 'no-store' });
+  if (res.status === 401) throw new Error('同步密碼不對');
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  return res.json();
+}
+
+function applyRestore(data) {
+  // 保留這台裝置的同步密碼與網址
+  const keep = { token: S.health.token, endpoint: S.health.endpoint, enabled: S.health.enabled };
+  localStorage.setItem(KEY, JSON.stringify({ ...data, health: { ...(data.health || {}), ...keep } }));
+  S = load();
+  dataVer++;
+  backupDirty = false;
+  render();
+}
+
+async function cloudRestore(date) {
+  try {
+    const got = await cloudFetch(date ? `/backup?date=${date}` : '/backup');
+    if (!got?.data) { toast('雲端沒有這份備份'); return; }
+    const c = got.data;
+    const msg = `要用雲端備份（${new Date(got.savedAt).toLocaleString('zh-TW')}，${c.entries.length} 筆飲食紀錄、${(c.customFoods || []).length} 個自訂食物）覆蓋這台裝置目前的資料嗎？`;
+    if (!confirm(msg)) return;
+    applyRestore(c);
+    toast('已從雲端還原 ✅');
+  } catch (e) {
+    toast('還原失敗：' + e.message);
+  }
+}
+
+// 手機裡沒有資料、但雲端有備份時，主動詢問要不要還原（換手機、資料被清掉時）
+async function offerRestoreIfEmpty() {
+  if (!cloudReady() || hasLocalData()) return;
+  try {
+    const got = await cloudFetch('/backup');
+    const c = got?.data;
+    if (!c || !(c.entries?.length || c.customFoods?.length || Object.keys(c.weights || {}).length)) return;
+    if (hasLocalData()) return;
+    if (confirm(`這台裝置目前沒有資料，但雲端有備份（${new Date(got.savedAt).toLocaleString('zh-TW')}，${c.entries.length} 筆飲食紀錄、${(c.customFoods || []).length} 個自訂食物）。要還原嗎？`)) {
+      applyRestore(c);
+      toast('已從雲端還原 ✅');
+    }
+  } catch { /* 靜默失敗，不打擾使用者 */ }
 }
 
 let cur = today();
@@ -631,7 +736,7 @@ function renderSettings() {
       <p class="muted">用 iPhone 捷徑把 Garmin 寫進 Apple 健康的「活動能量」送進來。你平常的活動量已經算在目標裡，所以只有<b>比平常多動的部分</b>會加回 70% 到當天的額度。<a href="apple-health.html">一步一步設定教學 ›</a></p>
       <label class="check"><input type="checkbox" name="enabled" ${S.health.enabled ? 'checked' : ''} /> 啟用 Apple 健康同步</label>
       <label>接收端網址<input name="endpoint" value="${esc(S.health.endpoint)}" autocomplete="off" spellcheck="false" /></label>
-      <label>同步密碼（捷徑和這裡要填同一組）
+      <label>同步密碼（捷徑和這裡要填同一組；雲端備份也用這組）
         <div class="search-row"><input name="token" type="password" value="${esc(S.health.token)}" autocomplete="off" spellcheck="false" placeholder="按「產生」建立一組" />
         <button type="button" class="btn" data-action="gen-token">產生</button></div></label>
       <div class="btn-row start">
@@ -643,6 +748,18 @@ function renderSettings() {
     </form>
 
     <div class="card">
+      <div class="card-head"><h3>☁️ 雲端備份</h3><span class="muted">${cloudReady() ? '自動備份中' : '未啟用'}</span></div>
+      <p class="muted">資料會自動備份到你自己的 Cloudflare 接收端：每次記錄後約 30 秒上傳一次，關掉 App 時也會上傳，並保留最近 30 天、每天一份快照。換手機、資料被清掉，或 Safari 和主畫面兩邊要同步時，都可以從這裡還原。</p>
+      <label class="check"><input type="checkbox" id="cloud-enabled" ${cloud.enabled ? 'checked' : ''} /> 自動備份到雲端</label>
+      <p class="note num" id="cloud-status">${esc(cloudStatusText())}</p>
+      <div class="btn-row start">
+        <button type="button" class="btn primary" data-action="cloud-backup">立即備份</button>
+        <button type="button" class="btn" data-action="cloud-list">從雲端還原…</button>
+      </div>
+      <div id="cloud-restore" class="list"></div>
+    </div>
+
+    <div class="card">
       <div class="card-head"><h3>自訂食物</h3><span class="muted">${S.customFoods.length} 項</span></div>
       <div class="list">${S.customFoods.length ? S.customFoods.map((f) => `<div class="row"><button class="grow link-row" data-action="edit-custom" data-id="${f.id}"><div class="name">${esc(f.name)}</div>
         <div class="sub">${esc(f.serving)} · ${r0(f.kcal)} kcal${f.barcode ? ' · 條碼 ' + esc(f.barcode) : ''}</div></button><button class="icon-btn" data-action="del-custom" data-id="${f.id}" aria-label="刪除">✕</button></div>`).join('')
@@ -651,7 +768,7 @@ function renderSettings() {
 
     <div class="card">
       <div class="card-head"><h3>資料備份</h3></div>
-      <p class="muted">所有資料只存在這台裝置的瀏覽器裡。換手機或清除瀏覽器資料前，記得先匯出備份。</p>
+      <p class="muted">除了雲端備份，也可以把資料下載成檔案，存到「檔案」App 或 iCloud 雲碟，多一層保險。</p>
       <div class="btn-row start">
         <button class="btn" data-action="export">⬇ 匯出備份</button>
         <label class="btn" style="margin:0;color:inherit;font-size:inherit">⬆ 匯入備份<input type="file" id="import-file" accept=".json,application/json" class="visually-hidden" /></label>
@@ -693,12 +810,19 @@ function renderSettings() {
       token: String(fd.get('token') || '').trim(),
     });
     save();
-    if (!S.health.enabled) { S.health.error = ''; save(); renderSettings(); toast('已儲存（同步未啟用）'); return; }
+    if (!S.health.enabled) { S.health.error = ''; save(); renderSettings(); toast('已儲存（Apple 健康同步未啟用）'); offerRestoreIfEmpty(); return; }
     if (!S.health.token) { toast('請先填同步密碼'); return; }
     $('#health-status').textContent = '測試連線中…';
     const ok = await fetchHealth(true);
     renderSettings();
+    offerRestoreIfEmpty();
     toast(ok ? '連線成功 ✅' : '連線失敗，請看下面的錯誤訊息');
+  });
+  $('#cloud-enabled').addEventListener('change', (e) => {
+    cloud.enabled = e.target.checked;
+    saveCloud();
+    if (cloud.enabled) { backupDirty = true; cloudBackup(); }
+    updateCloudStatus();
   });
   $('#import-file').addEventListener('change', async (e) => {
     const file = e.target.files[0];
@@ -710,6 +834,7 @@ function renderSettings() {
       localStorage.setItem(KEY, JSON.stringify(data));
       S = load();
       dataVer++;
+      scheduleBackup();
       render();
       toast('已匯入備份');
     } catch (err) {
@@ -1209,6 +1334,28 @@ document.addEventListener('click', (e) => {
     case 'pick-food': openQty({ ...lists[d.list][+d.i] }); break;
     case 'edit-entry': { const en = S.entries.find((x) => x.id === d.id); if (en) openQty(en.food, en); break; }
     case 'quick-add': openCustom('quick'); break;
+    case 'cloud-backup':
+      if (!cloudReady()) { toast(S.health?.token ? '請先勾選「自動備份到雲端」' : '請先設定同步密碼'); break; }
+      if (!hasLocalData()) { toast('目前沒有資料可以備份'); break; }
+      $('#cloud-status').textContent = '備份中…';
+      cloudBackup({ force: true }).then((ok) => toast(ok ? '已備份到雲端 ✅' : '備份失敗：' + cloud.error));
+      break;
+    case 'cloud-list': {
+      if (!S.health?.token) { toast('請先設定同步密碼'); break; }
+      const box = $('#cloud-restore');
+      box.innerHTML = '<p class="empty">讀取雲端備份清單…</p>';
+      cloudFetch('/backup/list').then((r) => {
+        const items = r?.items || [];
+        box.innerHTML = items.length
+          ? '<div class="list-section">選擇要還原的版本（每天一份）</div>' + items.map((it) => `<button class="row" data-action="cloud-restore" data-date="${esc(it.date)}">
+              <div class="grow"><div class="name">${esc(it.date)}${it.date === items[0].date ? '（最新）' : ''}</div>
+              <div class="sub">${it.counts ? `${it.counts.entries} 筆飲食 · ${it.counts.customFoods} 個自訂食物 · ${it.counts.weights} 筆體重` : ''}${it.savedAt ? ' · ' + new Date(it.savedAt).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' }) : ''}</div></div>
+              <div class="kcal">還原</div></button>`).join('')
+          : '<p class="empty">雲端還沒有備份。</p>';
+      }).catch((e) => { box.innerHTML = `<p class="empty">讀取失敗：${esc(e.message)}</p>`; });
+      break;
+    }
+    case 'cloud-restore': cloudRestore(d.date); break;
     case 'gen-token': {
       const bytes = crypto.getRandomValues(new Uint8Array(24));
       const tok = btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
@@ -1318,6 +1465,7 @@ setInterval(() => fetchHealth(true), HEALTH_REFRESH_MS);
 // 跨午夜後重新開啟 App 時，自動跳到今天
 let lastToday = today();
 document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden' && backupDirty) cloudBackup({ keepalive: true }); // 離開 App 前把還沒上傳的改動送出
   if (document.visibilityState === 'visible') fetchHealth(); // 從捷徑切回來時更新
   if (document.visibilityState === 'visible' && today() !== lastToday) {
     if (cur === lastToday) cur = today();
@@ -1334,5 +1482,6 @@ window.addEventListener('hashchange', () => {
 if (VIEWS.includes(location.hash.slice(1))) view = location.hash.slice(1);
 render();
 fetchHealth();
+offerRestoreIfEmpty();
 
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});

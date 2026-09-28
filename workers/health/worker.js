@@ -3,10 +3,13 @@
  *
  *   POST /sync   捷徑上傳每日活動能量（純文字，一行一天：`2026-09-28=523.4`；也接受 JSON）
  *   GET  /data   App 讀取 { days: { 'YYYY-MM-DD': kcal }, updatedAt }
+ *   PUT  /backup           App 上傳完整資料備份（JSON）；同時存「最新」與當天快照（保留 30 天）
+ *   GET  /backup           下載最新備份；?date=YYYY-MM-DD 下載該日快照
+ *   GET  /backup/list      列出快照 [{ date, savedAt, counts }]
  *   GET  /off/search?q=…、/off/product/<條碼>
  *                Open Food Facts 轉接（瀏覽器直連被限流／擋掉時的備援；只接受本站來源，結果快取一天）
  *
- * /sync、/data 要帶 `Authorization: Bearer <SYNC_TOKEN>`。
+ * /sync、/data、/backup 要帶 `Authorization: Bearer <SYNC_TOKEN>`。
  * 需要的設定：SYNC_TOKEN（Secret）、KV binding HEALTH（部署 workflow 會自動建立）。
  */
 
@@ -22,7 +25,7 @@ export default {
     const origin = request.headers.get("Origin") || "";
     const cors = {
       "Access-Control-Allow-Origin": ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0],
-      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+      "Access-Control-Allow-Methods": "GET, POST, PUT, OPTIONS",
       "Access-Control-Allow-Headers": "Authorization, Content-Type",
       "Access-Control-Max-Age": "86400",
       Vary: "Origin",
@@ -70,9 +73,76 @@ export default {
       return json({ ok: true, received: dates.length, latest: dates.sort().at(-1), updatedAt });
     }
 
+    if (url.pathname.startsWith("/backup")) return backup(request, url, env, json);
+
     return json({ error: "not found" }, 404);
   },
 };
+
+// ---------- 資料備份 ----------
+const BACKUP_LATEST = "backup:latest";
+const BACKUP_DAY = "backup:day:";
+const BACKUP_KEEP = 30;
+const BACKUP_MAX = 5 * 1024 * 1024; // 5 MB
+
+// 台灣時間的日期（快照以當地日期為單位）
+const taipeiDate = (d = new Date()) => new Date(d.getTime() + 8 * 3600 * 1000).toISOString().slice(0, 10);
+
+function summarize(data) {
+  return {
+    entries: Array.isArray(data.entries) ? data.entries.length : 0,
+    customFoods: Array.isArray(data.customFoods) ? data.customFoods.length : 0,
+    weights: data.weights ? Object.keys(data.weights).length : 0,
+    waists: data.waists ? Object.keys(data.waists).length : 0,
+  };
+}
+
+async function backup(request, url, env, json) {
+  if (url.pathname === "/backup" && request.method === "PUT") {
+    const text = await request.text();
+    if (text.length > BACKUP_MAX) return json({ error: "backup too large" }, 413);
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      return json({ error: "invalid JSON" }, 400);
+    }
+    if (!data || typeof data !== "object" || !Array.isArray(data.entries) || !data.profile) {
+      return json({ error: "not a Brian as the Chef backup" }, 400);
+    }
+    if (data.health) data.health.token = ""; // 不在雲端保存密碼
+    const savedAt = new Date().toISOString();
+    const date = taipeiDate();
+    const counts = summarize(data);
+    const body = JSON.stringify({ savedAt, data });
+    const metadata = { savedAt, date, counts };
+    await env.HEALTH.put(BACKUP_LATEST, body, { metadata });
+    await env.HEALTH.put(BACKUP_DAY + date, body, { metadata });
+    // 只保留最近 BACKUP_KEEP 天的快照
+    const list = await env.HEALTH.list({ prefix: BACKUP_DAY });
+    const old = list.keys.map((k) => k.name).sort().slice(0, -BACKUP_KEEP);
+    await Promise.all(old.map((k) => env.HEALTH.delete(k)));
+    return json({ ok: true, savedAt, date, counts });
+  }
+
+  if (url.pathname === "/backup" && request.method === "GET") {
+    const date = url.searchParams.get("date");
+    if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) return json({ error: "bad date" }, 400);
+    const stored = await env.HEALTH.get(date ? BACKUP_DAY + date : BACKUP_LATEST, "json");
+    if (!stored) return json({ error: "no backup" }, 404);
+    return json(stored);
+  }
+
+  if (url.pathname === "/backup/list" && request.method === "GET") {
+    const list = await env.HEALTH.list({ prefix: BACKUP_DAY });
+    const items = list.keys
+      .map((k) => ({ date: k.name.slice(BACKUP_DAY.length), ...(k.metadata || {}) }))
+      .sort((a, b) => b.date.localeCompare(a.date));
+    return json({ items });
+  }
+
+  return json({ error: "not found" }, 404);
+}
 
 // 解析「YYYY-MM-DD=數字」（一行一筆；也接受「:」、空白、tab 分隔，或 JSON {days:{...}} / {"2026-09-28": 523}）
 function parse(text) {

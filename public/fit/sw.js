@@ -1,6 +1,6 @@
 // Brian as the Chef service worker：網路優先（每次都向伺服器確認有沒有新版），離線時用快取。
 // 每次改版都要把 CACHE 版本號加 1，App 才會偵測到新版並自動重新載入。
-const CACHE = 'fanfit-v16';
+const CACHE = 'fanfit-v17';
 const ASSETS = ['./', 'index.html', 'app.css', 'app.js', 'foods.js', 'icon.svg', 'manifest.webmanifest'];
 
 self.addEventListener('install', (e) => {

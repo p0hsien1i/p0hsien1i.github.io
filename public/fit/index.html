@@ -141,6 +141,26 @@
     </form>
   </dialog>
 
+  <!-- 從雲端還原（確認） -->
+  <dialog id="dlg-restore" class="sheet">
+    <form id="restore-form" method="dialog">
+      <div class="sheet-head">
+        <h2>確認還原</h2>
+        <button type="button" class="icon-btn" data-close aria-label="關閉">✕</button>
+      </div>
+      <p class="muted" id="restore-sub"></p>
+      <div id="restore-diff"></div>
+      <div id="restore-confirm">
+        <p class="note">還原會用這個版本<b>整份取代</b>目前的資料，手機和電腦都會一起變成這個版本。還原前會自動保存一份目前的資料，可以用「↩️ 取消上次還原」回去。</p>
+        <label>請輸入「還原」兩個字確認<input id="restore-word" autocomplete="off" placeholder="還原" /></label>
+        <div class="btn-row">
+          <button type="button" class="btn" data-close>取消</button>
+          <button type="submit" class="btn primary" id="restore-submit" disabled>還原</button>
+        </div>
+      </div>
+    </form>
+  </dialog>
+
   <div id="toast" role="status" aria-live="polite"></div>
 
   <script type="module" src="app.js"></script>

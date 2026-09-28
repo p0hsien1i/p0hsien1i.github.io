@@ -266,18 +266,78 @@ function applyRestore(data) {
   render();
 }
 
+// 還原前自動保存目前的資料（只留最近一次），可以一鍵取消還原
+const PRE_RESTORE_KEY = 'fanfit:pre-restore';
+function loadPreRestore() {
+  try { return JSON.parse(localStorage.getItem(PRE_RESTORE_KEY) || 'null'); } catch { return null; }
+}
+
+// 比較「目前的資料」和「要還原的版本」，列出會刪除／新增／修改多少
+function restoreDiff(now, next) {
+  const rows = [];
+  const entryName = (e) => `${e.date || ''} ${e.food?.name || '（未命名）'}`.trim();
+  const cmp = (label, a, b, nameOf) => {
+    const del = [...a.keys()].filter((k) => !b.has(k));
+    const add = [...b.keys()].filter((k) => !a.has(k));
+    const mod = [...a.keys()].filter((k) => b.has(k) && !same(a.get(k), b.get(k)));
+    if (del.length || add.length || mod.length) rows.push({ label, del: del.map((k) => nameOf(k, a.get(k))), add: add.length, mod: mod.length });
+  };
+  cmp('飲食紀錄', byId(now.entries), byId(next.entries), (k, e) => entryName(e));
+  cmp('自訂食物', byId(now.customFoods), byId(next.customFoods), (k, f) => f?.name || k);
+  cmp('體重', mapOf(now.weights), mapOf(next.weights), (k, v) => `${k} ${v} kg`);
+  cmp('腰圍', mapOf(now.waists), mapOf(next.waists), (k, v) => `${k} ${v} cm`);
+  const profileChanged = !same(now.profile, { ...now.profile, ...(next.profile || {}) });
+  return { rows, profileChanged };
+}
+
+function renderRestoreDiff({ rows, profileChanged }) {
+  if (!rows.length && !profileChanged) return '<p class="note">這個版本跟目前的資料一樣，不需要還原。</p>';
+  const li = rows.map((r) => {
+    const parts = [];
+    if (r.del.length) parts.push(`<span class="diff-del">刪除 ${r.del.length} 筆</span>`);
+    if (r.add) parts.push(`<span class="diff-add">新增 ${r.add} 筆</span>`);
+    if (r.mod) parts.push(`修改 ${r.mod} 筆`);
+    const names = r.del.length ? `<div class="diff-names">會刪掉：${r.del.slice(0, 5).map(esc).join('、')}${r.del.length > 5 ? ` …等 ${r.del.length} 筆` : ''}</div>` : '';
+    return `<li><b>${r.label}</b>：${parts.join('、')}${names}</li>`;
+  });
+  if (profileChanged) li.push('<li><b>個人資料</b>：會改成那個版本的設定（身高、目標等）</li>');
+  return `<ul class="diff-list">${li.join('')}</ul>`;
+}
+
+let restoreCtx = null;
 async function cloudRestore(date) {
   try {
     const got = await cloudFetch(date ? `/backup?date=${date}` : '/backup');
     if (!got?.data) { toast('雲端沒有這份備份'); return; }
-    const c = got.data;
-    const msg = `要用雲端備份（${new Date(got.savedAt).toLocaleString('zh-TW')}，${c.entries.length} 筆飲食紀錄、${(c.customFoods || []).length} 個自訂食物）覆蓋目前的資料嗎？其他裝置也會跟著變成這個版本。`;
-    if (!confirm(msg)) return;
-    applyRestore(c);
-    toast('已從雲端還原 ✅');
+    const diff = restoreDiff(syncable(S), syncable(got.data));
+    const nothing = !diff.rows.length && !diff.profileChanged;
+    restoreCtx = nothing ? null : got.data;
+    $('#restore-sub').textContent = `版本：${date || '最新'}（${new Date(got.savedAt).toLocaleString('zh-TW')}）。跟目前的資料相比：`;
+    $('#restore-diff').innerHTML = renderRestoreDiff(diff);
+    $('#restore-confirm').hidden = nothing;
+    $('#restore-word').value = '';
+    $('#restore-submit').disabled = true;
+    $('#dlg-restore').showModal();
   } catch (e) {
-    toast('還原失敗：' + e.message);
+    toast('讀取備份失敗：' + e.message);
   }
+}
+$('#restore-word').addEventListener('input', (e) => { $('#restore-submit').disabled = e.target.value.trim() !== '還原' || !restoreCtx; });
+$('#restore-form').addEventListener('submit', (e) => {
+  if ($('#restore-word').value.trim() !== '還原' || !restoreCtx) { e.preventDefault(); return; }
+  try { localStorage.setItem(PRE_RESTORE_KEY, JSON.stringify({ savedAt: new Date().toISOString(), data: syncable(S) })); } catch { /* 空間不足就不存 */ }
+  applyRestore(restoreCtx);
+  restoreCtx = null;
+  toast('已從雲端還原 ✅');
+});
+
+function undoRestore() {
+  const pre = loadPreRestore();
+  if (!pre?.data) { toast('沒有可以取消的還原'); return; }
+  if (!confirm(`要回到還原前的資料嗎（${new Date(pre.savedAt).toLocaleString('zh-TW')} 保存）？手機和電腦都會一起改回來。`)) return;
+  try { localStorage.removeItem(PRE_RESTORE_KEY); } catch { /* 忽略 */ }
+  applyRestore(pre.data);
+  toast('已回到還原前 ✅');
 }
 
 let cur = today();
@@ -858,9 +918,16 @@ function renderSettings() {
       <p class="note num" id="cloud-status">${esc(cloudStatusText())}</p>
       <div class="btn-row start">
         <button type="button" class="btn primary" data-action="cloud-backup">立即同步</button>
-        <button type="button" class="btn" data-action="cloud-list">從雲端還原…</button>
       </div>
-      <div id="cloud-restore" class="list"></div>
+      <details class="advanced"${loadPreRestore() ? ' open' : ''}>
+        <summary>進階：從雲端還原</summary>
+        <p class="muted">還原會用舊版本<b>整份取代</b>目前的資料，手機和電腦都會一起變成那個版本。平常不需要用到，只有資料出錯、想回到某一天時才用。</p>
+        <div class="btn-row start">
+          <button type="button" class="btn" data-action="cloud-list">選擇要還原的版本…</button>
+          ${loadPreRestore() ? '<button type="button" class="btn" data-action="undo-restore">↩️ 取消上次還原</button>' : ''}
+        </div>
+        <div id="cloud-restore" class="list"></div>
+      </details>
     </div>
 
     <div class="card">
@@ -1454,12 +1521,13 @@ document.addEventListener('click', (e) => {
           ? '<div class="list-section">選擇要還原的版本（每天一份）</div>' + items.map((it) => `<button class="row" data-action="cloud-restore" data-date="${esc(it.date)}">
               <div class="grow"><div class="name">${esc(it.date)}${it.date === items[0].date ? '（最新）' : ''}</div>
               <div class="sub">${it.counts ? `${it.counts.entries} 筆飲食 · ${it.counts.customFoods} 個自訂食物 · ${it.counts.weights} 筆體重` : ''}${it.savedAt ? ' · ' + new Date(it.savedAt).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' }) : ''}</div></div>
-              <div class="kcal">還原</div></button>`).join('')
+              <div class="kcal">查看</div></button>`).join('')
           : '<p class="empty">雲端還沒有備份。</p>';
       }).catch((e) => { box.innerHTML = `<p class="empty">讀取失敗：${esc(e.message)}</p>`; });
       break;
     }
     case 'cloud-restore': cloudRestore(d.date); break;
+    case 'undo-restore': undoRestore(); break;
     case 'gen-token': {
       const bytes = crypto.getRandomValues(new Uint8Array(24));
       const tok = btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');

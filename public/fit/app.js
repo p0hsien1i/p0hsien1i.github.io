@@ -1,5 +1,4 @@
 import { FOODS } from './foods.js';
-import { importGarminFiles } from './garmin.js';
 
 // ================= utils =================
 const $ = (s, el = document) => el.querySelector(s);
@@ -40,19 +39,13 @@ const MEALS = [['breakfast', '早餐'], ['lunch', '午餐'], ['dinner', '晚餐'
 const mealName = (m) => (MEALS.find((x) => x[0] === m) || MEALS[3])[1];
 const ACTIVITY = [[1.2, '久坐（幾乎不運動）'], [1.375, '輕度（每週 1–3 天）'], [1.55, '中度（每週 3–5 天）'], [1.725, '高度（每週 6–7 天）']];
 const WEEKLY = [[-1, '每週減 1 kg'], [-0.75, '每週減 0.75 kg'], [-0.5, '每週減 0.5 kg'], [-0.25, '每週減 0.25 kg'], [0, '維持體重'], [0.25, '每週增 0.25 kg'], [0.5, '每週增 0.5 kg']];
-const EXERCISES = [
-  ['走路', 3.5], ['快走', 4.3], ['慢跑', 7], ['跑步（10 km/h）', 9.8], ['自行車（一般）', 7.5], ['飛輪', 8.5],
-  ['游泳', 6], ['重量訓練', 5], ['HIIT', 8], ['瑜伽', 2.5], ['爬山 / 健行', 6.5], ['跳繩', 11],
-  ['羽球', 5.5], ['籃球', 6.5], ['桌球', 4], ['舞蹈', 5], ['其他', 4],
-];
 
 const defaults = () => ({
   profile: {
     sex: 'male', age: 30, height: 170, weight: 70, activity: 1.375, weeklyGoal: -0.5,
-    calorieOverride: 0, macros: { c: 45, p: 25, f: 30 }, exerciseAddBack: 75,
+    calorieOverride: 0, macros: { c: 45, p: 25, f: 30 },
   },
   entries: [], // { id, date, meal, food, amount, qty }
-  exercises: [], // { id, date, name, minutes, kcal, source, key?, distance?, avgHr?, time? }
   weights: {}, // { 'YYYY-MM-DD': kg }
   customFoods: [],
   recents: [],
@@ -103,8 +96,6 @@ function foodTotals(date, meal) {
   }
   return t;
 }
-const exerciseTotal = (date) => S.exercises.filter((x) => x.date === date).reduce((s, x) => s + (x.kcal || 0), 0);
-const exerciseCredit = (date) => r0((exerciseTotal(date) * S.profile.exerciseAddBack) / 100);
 const amountLabel = (e) => (e.food.grams ? `${r1(e.amount)} g` : `${r1(e.amount)} × ${e.food.serving}`);
 
 // ================= rendering =================
@@ -113,10 +104,10 @@ function render() {
   $('#date-input').value = cur;
   for (const sec of document.querySelectorAll('.view')) sec.hidden = sec.dataset.view !== view;
   for (const b of document.querySelectorAll('.tabbar [data-tab]')) {
-    if (b.dataset.tab === view || (view === 'garmin' && b.dataset.tab === 'settings')) b.setAttribute('aria-current', 'page');
+    if (b.dataset.tab === view) b.setAttribute('aria-current', 'page');
     else b.removeAttribute('aria-current');
   }
-  ({ home: renderHome, diary: renderDiary, progress: renderProgress, garmin: renderGarmin, settings: renderSettings })[view]();
+  ({ home: renderHome, diary: renderDiary, progress: renderProgress, settings: renderSettings })[view]();
 }
 
 function macroMeter(label, val, goal, color) {
@@ -128,13 +119,11 @@ function macroMeter(label, val, goal, color) {
 function renderHome() {
   const goal = calorieGoal();
   const t = foodTotals(cur);
-  const credit = exerciseCredit(cur);
-  const budget = goal + credit;
-  const remain = budget - r0(t.kcal);
+  const eaten = r0(t.kcal);
+  const remain = goal - eaten;
   const mg = macroGoals(goal);
   const C = 2 * Math.PI * 54;
-  const pct = budget > 0 ? Math.min(1, t.kcal / budget) : 0;
-  const recentEx = S.exercises.filter((x) => x.date === cur);
+  const pct = goal > 0 ? Math.min(1, eaten / goal) : 0;
 
   $('#view-home').innerHTML = `
     <div class="card">
@@ -145,13 +134,13 @@ function renderHome() {
             <circle class="bar" cx="60" cy="60" r="54" fill="none" stroke-width="10" stroke-linecap="round"
               stroke-dasharray="${C}" stroke-dashoffset="${C * (1 - pct)}"/>
           </svg>
-          <div class="ring-label"><b class="num">${Math.abs(remain)}</b><span>${remain < 0 ? '超過 kcal' : '剩餘 kcal'}</span></div>
+          <div class="ring-label"><span>已攝取</span><b class="num">${eaten}</b><span class="num">/ ${goal} kcal</span></div>
         </div>
         <div class="equation num">
-          <div><span>目標</span><span>${goal}</span></div>
-          <div><span>− 食物</span><span>${r0(t.kcal)}</span></div>
-          <div><span>＋ 運動${S.profile.exerciseAddBack < 100 ? `（${S.profile.exerciseAddBack}%）` : ''}</span><span>${credit}</span></div>
-          <div class="total"><span>= 剩餘</span><span>${remain}</span></div>
+          <div><span>每日目標</span><span>${goal}</span></div>
+          <div><span>已攝取</span><span>${eaten}</span></div>
+          <div class="total"><span>${remain < 0 ? '超過' : '還可以吃'}</span><span style="color:${remain < 0 ? 'var(--accent-text)' : 'var(--good)'}">${Math.abs(remain)}</span></div>
+          <div><span class="muted">達成</span><span class="muted">${goal ? r0((eaten / goal) * 100) : 0}%</span></div>
         </div>
       </div>
       <div class="macros">
@@ -162,9 +151,7 @@ function renderHome() {
     </div>
 
     <div class="quick">
-      <button class="btn" data-action="add-food">🍙 記錄飲食</button>
-      <button class="btn" data-action="add-ex">🏃 記錄運動</button>
-      <button class="btn" data-action="goto" data-view="garmin">⌚ Garmin 匯入</button>
+      <button class="btn primary" data-action="add-food">🍙 記錄飲食</button>
       <button class="btn" data-action="goto" data-view="progress">⚖️ 記錄體重</button>
     </div>
 
@@ -181,9 +168,6 @@ function renderHome() {
       </div>
     </div>
 
-    ${recentEx.length ? `<div class="card"><div class="card-head"><h3>今日運動</h3><span class="kcal num">${r0(exerciseTotal(cur))} kcal</span></div>
-      <div class="list">${recentEx.map(exRow).join('')}</div></div>` : ''}
-
     <div class="card chart">
       <div class="card-head"><h3>近 7 天攝取</h3><span class="muted">虛線＝目標</span></div>
       ${weekChart()}
@@ -195,7 +179,7 @@ function weekChart() {
   const vals = days.map((d) => foodTotals(d).kcal);
   const goal = calorieGoal();
   const max = Math.max(goal * 1.25, ...vals) || 1;
-  const W = 320, H = 150, top = 10, bottom = 20, h = H - top - bottom, bw = 26, gap = (W - 7 * bw) / 7;
+  const W = 320, H = 150, top = 16, bottom = 20, h = H - top - bottom, bw = 26, gap = (W - 7 * bw) / 7;
   const y = (v) => top + h - (v / max) * h;
   return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="近 7 天熱量攝取長條圖">
     <line class="goal" x1="0" x2="${W}" y1="${y(goal)}" y2="${y(goal)}"/>
@@ -203,30 +187,22 @@ function weekChart() {
       const x = gap / 2 + i * (bw + gap);
       const v = vals[i];
       return `<rect class="bar ${d === cur ? 'cur' : ''}" x="${x}" y="${y(v)}" width="${bw}" height="${Math.max(0, top + h - y(v))}" rx="5"><title>${short(d)}：${r0(v)} kcal</title></rect>
-        <text x="${x + bw / 2}" y="${H - 5}" text-anchor="middle">${WEEK[parseYmd(d).getDay()]}</text>`;
+        <text x="${x + bw / 2}" y="${H - 5}" text-anchor="middle">${WEEK[parseYmd(d).getDay()]}</text>
+        ${v ? `<text x="${x + bw / 2}" y="${Math.max(top + 8, y(v) - 4)}" text-anchor="middle">${r0(v)}</text>` : ''}`;
     }).join('')}
   </svg>`;
-}
-
-function exRow(x) {
-  const bits = [x.minutes ? `${x.minutes} 分鐘` : '', x.distance, x.avgHr ? `♥ ${x.avgHr}` : '', x.time].filter(Boolean).join(' · ');
-  return `<button class="row" data-action="edit-ex" data-id="${x.id}">
-    <div class="grow"><div class="name">${esc(x.name)}${x.source === 'garmin' ? '<span class="badge garmin">Garmin</span>' : ''}</div>
-    <div class="sub">${esc(bits)}</div></div><div class="kcal num">${r0(x.kcal)} kcal</div></button>`;
 }
 
 function renderDiary() {
   const goal = calorieGoal();
   const t = foodTotals(cur);
-  const credit = exerciseCredit(cur);
-  const exs = S.exercises.filter((x) => x.date === cur);
   const yesterday = addDays(cur, -1);
   $('#view-diary').innerHTML = `
     <div class="card">
       <div class="grid3 num" style="text-align:center">
-        <div><small class="muted">目標＋運動</small><div><b>${goal + credit}</b></div></div>
+        <div><small class="muted">目標</small><div><b>${goal}</b></div></div>
         <div><small class="muted">已攝取</small><div><b>${r0(t.kcal)}</b></div></div>
-        <div><small class="muted">剩餘</small><div><b style="color:${goal + credit - t.kcal < 0 ? 'var(--accent-text)' : 'var(--good)'}">${r0(goal + credit - t.kcal)}</b></div></div>
+        <div><small class="muted">${goal - t.kcal < 0 ? '超過' : '剩餘'}</small><div><b style="color:${goal - t.kcal < 0 ? 'var(--accent-text)' : 'var(--good)'}">${Math.abs(r0(goal - t.kcal))}</b></div></div>
       </div>
     </div>
     ${MEALS.map(([k, n]) => {
@@ -246,15 +222,7 @@ function renderDiary() {
           ${hasYesterday && !items.length ? `<button class="link-btn" data-action="copy-meal" data-meal="${k}">↻ 複製昨天的${n}</button>` : ''}
         </div>
       </div>`;
-    }).join('')}
-    <div class="card">
-      <div class="card-head"><h3>運動</h3><span class="kcal num">${r0(exerciseTotal(cur))} kcal</span></div>
-      <div class="list">${exs.length ? exs.map(exRow).join('') : '<div class="empty">還沒有記錄</div>'}</div>
-      <div class="btn-row start">
-        <button class="link-btn" data-action="add-ex">＋ 新增運動</button>
-        <button class="link-btn" data-action="goto" data-view="garmin">⌚ 從 Garmin 匯入</button>
-      </div>
-    </div>`;
+    }).join('')}`;
 }
 
 function renderProgress() {
@@ -289,7 +257,7 @@ function renderProgress() {
       <div class="stats num" style="margin-top:0">
         <div><b>${logged.length}</b><small>有記錄天數</small></div>
         <div><b>${r0(avg)}</b><small>平均攝取 kcal</small></div>
-        <div><b>${r0(S.exercises.filter((x) => x.date >= last30[0]).reduce((s, x) => s + x.kcal, 0))}</b><small>運動消耗 kcal</small></div>
+        <div><b>${logged.filter((d) => foodTotals(d).kcal <= calorieGoal()).length}</b><small>未超標天數</small></div>
       </div>
     </div>
     ${ws.length ? `<div class="card"><div class="card-head"><h3>體重紀錄</h3></div><div class="list">
@@ -317,86 +285,6 @@ function weightChart(points) {
   </svg>`;
 }
 
-function renderGarmin() {
-  const imported = S.exercises.filter((x) => x.source === 'garmin').sort((a, b) => (b.date + (b.time || '')).localeCompare(a.date + (a.time || '')));
-  $('#view-garmin').innerHTML = `
-    <div class="card">
-      <div class="card-head"><h3>⌚ 匯入 Garmin 運動</h3></div>
-      <p class="muted">把從 Garmin Connect 匯出的檔案丟進來，運動消耗的熱量會自動加到每天的日記。同一筆活動重複匯入不會重複計算。</p>
-      <label class="drop" id="drop" style="margin-top:12px">
-        <b>點此選擇檔案，或拖曳到這裡</b>
-        <span class="muted">支援 .fit、.zip（匯出原始檔）、.csv（活動清單）</span>
-        <input type="file" id="garmin-file" accept=".fit,.zip,.csv" multiple class="visually-hidden" />
-      </label>
-      <div id="garmin-result"></div>
-    </div>
-    <div class="card">
-      <h3>怎麼從 Garmin Connect 匯出？</h3>
-      <p class="muted" style="margin-top:8px"><b>方法一：一次匯入很多筆（推薦）</b></p>
-      <ol class="steps">
-        <li>用電腦瀏覽器開 <a href="https://connect.garmin.com/modern/activities" target="_blank" rel="noopener">connect.garmin.com → 活動</a></li>
-        <li>往下捲動讓要匯入的活動都載入</li>
-        <li>按右上角「<b>匯出 CSV</b>」，把下載的 <code>Activities.csv</code> 丟進上面</li>
-      </ol>
-      <p class="muted" style="margin-top:10px"><b>方法二：單筆活動（含心率等詳細資料）</b></p>
-      <ol class="steps">
-        <li>在 Garmin Connect 打開某個活動</li>
-        <li>右上角齒輪 ⚙ →「<b>匯出原始檔</b>」（會下載 .zip）</li>
-        <li>直接把 .zip 丟進上面，不用解壓縮</li>
-      </ol>
-      <p class="note">💡 Garmin 的活動熱量是「總消耗」（含基礎代謝），直接全加回會高估。預設只加回 ${S.profile.exerciseAddBack}%，可以在「設定」調整。<br/>
-      🔒 檔案只在你的瀏覽器裡解析，不會上傳到任何伺服器。<br/>
-      🔄 Garmin 官方的自動同步 API 需要向 Garmin 申請開發者資格（Garmin Connect Developer Program），核准後可以再接上自動同步。</p>
-    </div>
-    <div class="card">
-      <div class="card-head"><h3>已匯入的活動</h3><span class="muted">${imported.length} 筆</span></div>
-      <div class="list">${imported.length ? imported.slice(0, 30).map((x) =>
-        `<button class="row" data-action="goto-date" data-date="${x.date}"><div class="grow"><div class="name">${esc(x.name)}</div>
-        <div class="sub">${dateLabel(x.date)} ${esc(x.time || '')} · ${x.minutes} 分鐘${x.distance ? ' · ' + esc(x.distance) : ''}</div></div>
-        <div class="kcal num">${r0(x.kcal)} kcal</div></button>`).join('') : '<div class="empty">還沒有匯入任何活動</div>'}</div>
-      ${imported.length ? '<div class="btn-row start"><button class="link-btn" data-action="clear-garmin">刪除所有 Garmin 匯入資料</button></div>' : ''}
-    </div>`;
-
-  const drop = $('#drop');
-  const input = $('#garmin-file');
-  input.addEventListener('change', () => { handleGarmin(input.files); input.value = ''; });
-  drop.addEventListener('dragover', (e) => { e.preventDefault(); drop.classList.add('drag'); });
-  drop.addEventListener('dragleave', () => drop.classList.remove('drag'));
-  drop.addEventListener('drop', (e) => { e.preventDefault(); drop.classList.remove('drag'); handleGarmin(e.dataTransfer.files); });
-}
-
-async function handleGarmin(files) {
-  if (!files?.length) return;
-  const out = $('#garmin-result');
-  out.innerHTML = '<p class="muted" style="margin-top:10px">解析中…</p>';
-  const { activities, errors } = await importGarminFiles([...files]);
-  const existing = new Map(S.exercises.filter((x) => x.key).map((x) => [x.key, x]));
-  let added = 0, updated = 0;
-  for (const a of activities) {
-    const rec = {
-      date: ymd(a.start), time: `${pad(a.start.getHours())}:${pad(a.start.getMinutes())}`,
-      name: a.name, minutes: a.minutes, kcal: a.kcal, distance: a.distance, avgHr: a.avgHr, source: 'garmin', key: a.key,
-    };
-    const old = existing.get(a.key);
-    if (old) {
-      // 已存在：保留舊資料，但用新檔案補上缺的欄位（例如先匯入 CSV，再匯入 FIT 取得心率）
-      for (const k of ['kcal', 'minutes', 'distance', 'avgHr']) if (!old[k] && rec[k]) { old[k] = rec[k]; updated++; }
-    } else {
-      const x = { id: uid(), ...rec };
-      S.exercises.push(x);
-      existing.set(a.key, x);
-      added++;
-    }
-  }
-  save();
-  renderGarmin();
-  const skipped = activities.length - added;
-  $('#garmin-result').innerHTML = `<p class="note">✅ 新增 ${added} 筆活動${skipped ? `，${skipped} 筆已存在略過` : ''}${updated ? `（補齊 ${updated} 個欄位）` : ''}。
-    ${errors.length ? `<br/>⚠️ ${errors.map(esc).join('<br/>⚠️ ')}` : ''}
-    ${!activities.length && !errors.length ? '<br/>檔案裡沒有找到活動資料。' : ''}</p>`;
-  toast(`匯入 ${added} 筆 Garmin 活動`);
-}
-
 function renderSettings() {
   const p = S.profile;
   const opt = (list, v) => list.map(([val, label]) => `<option value="${val}" ${+val === +v ? 'selected' : ''}>${label}</option>`).join('');
@@ -420,15 +308,8 @@ function renderSettings() {
         <label>蛋白質<input name="mp" type="number" inputmode="numeric" min="0" max="100" value="${p.macros.p}" /></label>
         <label>脂肪<input name="mf" type="number" inputmode="numeric" min="0" max="100" value="${p.macros.f}" /></label>
       </div>
-      <label>運動熱量加回比例 %（Garmin 的熱量含基礎代謝，建議 50–80）<input name="exerciseAddBack" type="number" inputmode="numeric" min="0" max="100" value="${p.exerciseAddBack}" /></label>
       <div class="btn-row"><button class="btn primary">儲存設定</button></div>
     </form>
-
-    <div class="card">
-      <div class="card-head"><h3>⌚ Garmin</h3></div>
-      <p class="muted">從 Garmin Connect 匯入運動紀錄（.fit / .zip / .csv）。</p>
-      <div class="btn-row start"><button class="btn" data-action="goto" data-view="garmin">前往 Garmin 匯入 ›</button></div>
-    </div>
 
     <div class="card">
       <div class="card-head"><h3>自訂食物</h3><span class="muted">${S.customFoods.length} 項</span></div>
@@ -458,7 +339,6 @@ function renderSettings() {
       sex: fd.get('sex'), age: num(fd.get('age')), height: num(fd.get('height')),
       activity: num(fd.get('activity')), weeklyGoal: num(fd.get('weeklyGoal')),
       calorieOverride: num(fd.get('calorieOverride')), macros: { c: mc, p: mp, f: mf },
-      exerciseAddBack: Math.min(100, Math.max(0, num(fd.get('exerciseAddBack')))),
     });
     if (newW && r1(newW) !== r1(latestWeight(today()))) {
       if (Object.keys(S.weights).length) S.weights[today()] = r1(newW);
@@ -719,57 +599,6 @@ async function lookupBarcode(code) {
 }
 $('#barcode-form').addEventListener('submit', (e) => { e.preventDefault(); lookupBarcode($('#barcode-input').value); });
 
-// ================= exercise dialog =================
-let exEditId = null;
-function openExercise(ex) {
-  exEditId = ex?.id || null;
-  const form = $('#ex-form');
-  $('#ex-type').innerHTML = EXERCISES.map(([n, met]) => `<option value="${met}">${n}</option>`).join('');
-  form.reset();
-  if (ex) {
-    const opt = [...$('#ex-type').options].find((o) => o.text === ex.name);
-    if (opt) opt.selected = true;
-    else $('#ex-type').insertAdjacentHTML('afterbegin', `<option value="4" selected>${esc(ex.name)}</option>`);
-    form.minutes.value = ex.minutes;
-    form.kcal.value = ex.kcal;
-  }
-  form.querySelector('h2').textContent = ex ? '編輯運動' : '新增運動';
-  form.querySelector('.btn-row').innerHTML = (ex ? '<button type="button" class="btn ghost danger" id="ex-delete">刪除</button>' : '') +
-    `<button type="submit" class="btn primary">${ex ? '更新' : '加入'}</button>`;
-  $('#ex-delete')?.addEventListener('click', () => {
-    S.exercises = S.exercises.filter((x) => x.id !== exEditId);
-    save();
-    $('#dlg-ex').close();
-    toast('已刪除');
-    render();
-  });
-  updateExEstimate();
-  $('#dlg-ex').showModal();
-}
-function exEstimate() {
-  const f = $('#ex-form');
-  return r0(num(f.type.value) * latestWeight() * (num(f.minutes.value) / 60));
-}
-function updateExEstimate() {
-  $('#ex-estimate').textContent = `依體重 ${r1(latestWeight())} kg 估算約 ${exEstimate()} kcal（留空就用估算值）`;
-}
-$('#ex-form').addEventListener('input', updateExEstimate);
-$('#ex-form').addEventListener('submit', (e) => {
-  e.preventDefault();
-  const f = e.target;
-  const rec = {
-    name: f.type.options[f.type.selectedIndex].text,
-    minutes: num(f.minutes.value),
-    kcal: f.kcal.value !== '' ? num(f.kcal.value) : exEstimate(),
-  };
-  if (exEditId) Object.assign(S.exercises.find((x) => x.id === exEditId), rec);
-  else S.exercises.push({ id: uid(), date: cur, source: 'manual', ...rec });
-  save();
-  $('#dlg-ex').close();
-  toast(exEditId ? '已更新' : `已加入運動 ${rec.kcal} kcal`);
-  render();
-});
-
 // ================= global events =================
 function go(v) {
   view = v;
@@ -798,8 +627,6 @@ document.addEventListener('click', (e) => {
     case 'goto': go(d.view); break;
     case 'goto-date': cur = d.date; go('diary'); break;
     case 'add-food': openFood(d.meal); break;
-    case 'add-ex': openExercise(); break;
-    case 'edit-ex': openExercise(S.exercises.find((x) => x.id === d.id)); break;
     case 'pick-food': openQty({ ...lists[d.list][+d.i] }); break;
     case 'edit-entry': { const en = S.entries.find((x) => x.id === d.id); if (en) openQty(en.food, en); break; }
     case 'quick-add': openCustom('quick'); break;
@@ -813,11 +640,6 @@ document.addEventListener('click', (e) => {
     }
     case 'del-weight': delete S.weights[d.date]; save(); render(); break;
     case 'del-custom': S.customFoods = S.customFoods.filter((f) => f.id !== d.id); save(); render(); break;
-    case 'clear-garmin':
-      if (confirm('確定刪除所有從 Garmin 匯入的活動？（手動輸入的運動不受影響）')) {
-        S.exercises = S.exercises.filter((x) => x.source !== 'garmin'); save(); render();
-      }
-      break;
     case 'export': {
       const blob = new Blob([JSON.stringify(S, null, 1)], { type: 'application/json' });
       const a = document.createElement('a');
@@ -867,7 +689,7 @@ document.addEventListener('visibilitychange', () => {
   }
 });
 
-const VIEWS = ['home', 'diary', 'progress', 'garmin', 'settings'];
+const VIEWS = ['home', 'diary', 'progress', 'settings'];
 window.addEventListener('hashchange', () => {
   const v = location.hash.slice(1);
   if (VIEWS.includes(v) && v !== view) { view = v; render(); }

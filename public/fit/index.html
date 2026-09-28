@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>飯糰 Fit</title>
-  <meta name="description" content="飲食熱量記錄 + Garmin 運動匯入，資料只存在你的裝置上。" />
+  <meta name="description" content="記錄每天吃了什麼、攝取多少熱量，資料只存在你的裝置上。" />
   <meta name="robots" content="noindex" />
   <meta name="theme-color" content="#e10600" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -26,7 +26,6 @@
     <section class="view" id="view-home" data-view="home"></section>
     <section class="view" id="view-diary" data-view="diary" hidden></section>
     <section class="view" id="view-progress" data-view="progress" hidden></section>
-    <section class="view" id="view-garmin" data-view="garmin" hidden></section>
     <section class="view" id="view-settings" data-view="settings" hidden></section>
   </main>
 
@@ -107,23 +106,6 @@
     <form id="barcode-form" class="search-row">
       <input id="barcode-input" inputmode="numeric" placeholder="或手動輸入條碼數字" />
       <button class="btn">查詢</button>
-    </form>
-  </dialog>
-
-  <!-- 運動 -->
-  <dialog id="dlg-ex" class="sheet">
-    <form id="ex-form" method="dialog">
-      <div class="sheet-head">
-        <h2>新增運動</h2>
-        <button type="button" class="icon-btn" data-close aria-label="關閉">✕</button>
-      </div>
-      <label>運動類型<select name="type" id="ex-type"></select></label>
-      <div class="grid2">
-        <label>時間（分鐘）<input name="minutes" type="number" inputmode="numeric" min="1" value="30" required /></label>
-        <label>消耗 kcal<input name="kcal" type="number" inputmode="numeric" min="0" placeholder="自動估算" /></label>
-      </div>
-      <p class="muted" id="ex-estimate"></p>
-      <div class="btn-row"><button type="submit" class="btn primary">加入</button></div>
     </form>
   </dialog>
 

@@ -111,10 +111,43 @@ function render() {
   ({ home: renderHome, diary: renderDiary, progress: renderProgress, settings: renderSettings })[view]();
 }
 
-function macroMeter(label, val, goal, color) {
+// 營養素「還差多少」：蛋白質是要補足的目標，碳水／脂肪是上限
+function macroRow(label, val, goal, color, kind) {
+  const left = goal - val;
   const pct = goal ? Math.min(100, (val / goal) * 100) : 0;
-  return `<div class="macro"><small>${label}</small><b class="num">${r0(val)}</b><small class="num" style="display:inline"> / ${r0(goal)} g</small>
-    <div class="meter"><i style="width:${pct}%;background:${color}"></i></div></div>`;
+  let status, cls = '';
+  if (kind === 'min') {
+    status = left > 0.5 ? `還要補 <b>${r0(left)}</b> g` : '✓ 已達標';
+    cls = left > 0.5 ? 'need' : 'ok';
+  } else {
+    status = left >= 0 ? `還可以吃 <b>${r0(left)}</b> g` : `超過 <b>${r0(-left)}</b> g`;
+    cls = left >= 0 ? '' : 'over';
+  }
+  return `<div class="mrow ${cls}">
+    <div class="mrow-head"><span class="mrow-label"><i style="background:${color}"></i>${label}</span><span class="mrow-status">${status}</span></div>
+    <div class="meter"><i style="width:${pct}%;background:${color}"></i></div>
+    <small class="muted num">已吃 ${r0(val)} / 目標 ${r0(goal)} g</small>
+  </div>`;
+}
+
+// 把剩下的熱量／蛋白質，依比例分給今天還沒記錄的正餐
+const MEAL_SHARE = { breakfast: 25, lunch: 35, dinner: 35, snack: 10 };
+const MEAL_END_HOUR = { breakfast: 11, lunch: 15, dinner: 22, snack: 24 };
+function mealPlan(remainKcal, remainP) {
+  const isToday = cur === today();
+  const hour = new Date().getHours();
+  const open = Object.keys(MEAL_SHARE).filter((k) =>
+    !S.entries.some((e) => e.date === cur && e.meal === k) && (!isToday || hour < MEAL_END_HOUR[k]));
+  const total = open.reduce((s, k) => s + MEAL_SHARE[k], 0);
+  return open.map((k) => ({ meal: k, kcal: (remainKcal * MEAL_SHARE[k]) / total, p: (Math.max(0, remainP) * MEAL_SHARE[k]) / total }));
+}
+
+function coachLine(eaten, remain, goal, pLeft) {
+  if (!eaten) return '今天還沒記錄，從第一餐開始吧！';
+  if (remain < 0) return `今天多了 ${-remain} kcal，沒關係，明天再調整就好 🙂`;
+  if (remain <= goal * 0.1) return pLeft > 5 ? `快到目標了！剩下的額度優先補蛋白質（還差 ${r0(pLeft)} g）。` : '快到目標了，接下來選清淡一點的就好 👍';
+  if (pLeft > 5) return `還有 ${remain} kcal 的空間，蛋白質還要補 ${r0(pLeft)} g 💪`;
+  return `還有 ${remain} kcal 的空間，蛋白質已經達標 👍`;
 }
 
 function renderHome() {
@@ -123,33 +156,47 @@ function renderHome() {
   const eaten = r0(t.kcal);
   const remain = goal - eaten;
   const mg = macroGoals(goal);
-  const C = 2 * Math.PI * 54;
+  const pLeft = mg.p - t.p;
+  const R = 70, C = 2 * Math.PI * R;
   const pct = goal > 0 ? Math.min(1, eaten / goal) : 0;
+  const plan = remain > 0 ? mealPlan(remain, pLeft) : [];
 
   $('#view-home').innerHTML = `
-    <div class="card">
-      <div class="summary">
-        <div class="ring ${remain < 0 ? 'over' : ''}">
-          <svg viewBox="0 0 120 120" aria-hidden="true">
-            <circle class="track" cx="60" cy="60" r="54" fill="none" stroke-width="10"/>
-            <circle class="bar" cx="60" cy="60" r="54" fill="none" stroke-width="10" stroke-linecap="round"
-              stroke-dasharray="${C}" stroke-dashoffset="${C * (1 - pct)}"/>
-          </svg>
-          <div class="ring-label"><span>已攝取</span><b class="num">${eaten}</b><span class="num">/ ${goal} kcal</span></div>
-        </div>
-        <div class="equation num">
-          <div><span>每日目標</span><span>${goal}</span></div>
-          <div><span>已攝取</span><span>${eaten}</span></div>
-          <div class="total"><span>${remain < 0 ? '超過' : '還可以吃'}</span><span style="color:${remain < 0 ? 'var(--accent-text)' : 'var(--good)'}">${Math.abs(remain)}</span></div>
-          <div><span class="muted">達成</span><span class="muted">${goal ? r0((eaten / goal) * 100) : 0}%</span></div>
+    <div class="card hero">
+      <div class="hero-ring ${remain < 0 ? 'over' : ''}">
+        <svg viewBox="0 0 160 160" aria-hidden="true">
+          <circle class="track" cx="80" cy="80" r="${R}" fill="none" stroke-width="12"/>
+          <circle class="bar" cx="80" cy="80" r="${R}" fill="none" stroke-width="12" stroke-linecap="round"
+            stroke-dasharray="${C}" stroke-dashoffset="${C * (1 - pct)}"/>
+        </svg>
+        <div class="ring-label">
+          <span>${remain < 0 ? '已超過' : '還可以吃'}</span>
+          <b class="num">${Math.abs(remain).toLocaleString()}</b>
+          <span>kcal</span>
         </div>
       </div>
-      <div class="macros">
-        ${macroMeter('碳水', t.c, mg.c, 'var(--carb)')}
-        ${macroMeter('蛋白質', t.p, mg.p, 'var(--protein)')}
-        ${macroMeter('脂肪', t.f, mg.f, 'var(--fat)')}
+      <div class="hero-stats num">
+        <div><small>目標</small><b>${goal.toLocaleString()}</b></div>
+        <div><small>已吃</small><b>${eaten.toLocaleString()}</b></div>
+        <div><small>進度</small><b>${goal ? r0((eaten / goal) * 100) : 0}%</b></div>
       </div>
+      <p class="coach">${esc(coachLine(eaten, remain, goal, pLeft))}</p>
     </div>
+
+    <div class="card">
+      <div class="card-head"><h3>營養素還差多少</h3></div>
+      ${macroRow('蛋白質', t.p, mg.p, 'var(--protein)', 'min')}
+      ${macroRow('碳水', t.c, mg.c, 'var(--carb)', 'max')}
+      ${macroRow('脂肪', t.f, mg.f, 'var(--fat)', 'max')}
+    </div>
+
+    ${plan.length ? `<div class="card">
+      <div class="card-head"><h3>接下來怎麼吃</h3><span class="muted">剩下的額度分配</span></div>
+      <div class="list">${plan.map((x) => `<button class="row" data-action="add-food" data-meal="${x.meal}">
+        <div class="grow"><div class="name">${mealIcon[x.meal]} ${mealName(x.meal)}</div>
+        <div class="sub">${x.p >= 1 ? `蛋白質約 ${r0(x.p)} g` : '蛋白質已達標'}</div></div>
+        <div class="kcal num">約 ${r0(x.kcal / 10) * 10} kcal</div></button>`).join('')}</div>
+    </div>` : ''}
 
     <div class="quick">
       <button class="btn primary" data-action="add-food">🍙 記錄飲食</button>
@@ -179,7 +226,7 @@ function weekChart() {
   const days = Array.from({ length: 7 }, (_, i) => addDays(cur, i - 6));
   const vals = days.map((d) => foodTotals(d).kcal);
   const goal = calorieGoal();
-  const max = Math.max(goal * 1.25, ...vals) || 1;
+  const max = Math.max(goal * 1.25, ...vals.map((v) => v * 1.12)) || 1;
   const W = 320, H = 150, top = 16, bottom = 20, h = H - top - bottom, bw = 26, gap = (W - 7 * bw) / 7;
   const y = (v) => top + h - (v / max) * h;
   return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="近 7 天熱量攝取長條圖">
@@ -201,9 +248,9 @@ function renderDiary() {
   $('#view-diary').innerHTML = `
     <div class="card">
       <div class="grid3 num" style="text-align:center">
+        <div><small class="muted">${goal - t.kcal < 0 ? '已超過' : '還可以吃'}</small><div><b class="big" style="color:${goal - t.kcal < 0 ? 'var(--accent-text)' : 'var(--good)'}">${Math.abs(r0(goal - t.kcal))}</b></div></div>
+        <div><small class="muted">已吃</small><div><b>${r0(t.kcal)}</b></div></div>
         <div><small class="muted">目標</small><div><b>${goal}</b></div></div>
-        <div><small class="muted">已攝取</small><div><b>${r0(t.kcal)}</b></div></div>
-        <div><small class="muted">${goal - t.kcal < 0 ? '超過' : '剩餘'}</small><div><b style="color:${goal - t.kcal < 0 ? 'var(--accent-text)' : 'var(--good)'}">${Math.abs(r0(goal - t.kcal))}</b></div></div>
       </div>
     </div>
     ${MEALS.map(([k, n]) => {

@@ -1,5 +1,5 @@
 // 飯糰 Fit service worker：網路優先，離線時用快取（讓 App 可以離線開啟）。
-const CACHE = 'fanfit-v5';
+const CACHE = 'fanfit-v6';
 const ASSETS = ['./', 'index.html', 'app.css', 'app.js', 'foods.js', 'icon.svg', 'manifest.webmanifest'];
 
 self.addEventListener('install', (e) => {

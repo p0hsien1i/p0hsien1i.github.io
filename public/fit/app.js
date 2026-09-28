@@ -38,13 +38,12 @@ const KEY = 'fanfit:v1';
 const MEALS = [['breakfast', '早餐'], ['lunch', '午餐'], ['dinner', '晚餐'], ['snack', '點心'], ['drinks', '飲料']];
 const mealName = (m) => (MEALS.find((x) => x[0] === m) || MEALS[3])[1];
 const mealIcon = { breakfast: '🌅', lunch: '🍱', dinner: '🍲', snack: '🍪', drinks: '🧋' };
-const ACTIVITY = [[1.2, '久坐（幾乎不運動）'], [1.375, '輕度（每週 1–3 天）'], [1.55, '中度（每週 3–5 天）'], [1.725, '高度（每週 6–7 天）']];
 const WEEKLY = [[-1, '每週減 1 kg（偏快）'], [-0.75, '每週減 0.75 kg'], [-0.5, '每週減 0.5 kg（減脂建議）'], [-0.25, '每週減 0.25 kg'], [0, '維持體重'], [0.25, '每週增 0.25 kg'], [0.5, '每週增 0.5 kg']];
 
 const defaults = () => ({
   profile: {
-    sex: 'male', age: 30, height: 170, weight: 70, activity: 1.375, weeklyGoal: -0.5,
-    calorieOverride: 0, macros: { c: 45, p: 25, f: 30 }, autoAdjust: true,
+    sex: 'male', age: 30, height: 170, weight: 70, weeklyGoal: -0.5,
+    macros: { c: 45, p: 25, f: 30 }, autoAdjust: true,
     // 目標模式：'abs' 減脂・腹肌（蛋白質以每公斤計）／'general' 一般（三大營養素比例）
     mode: 'abs', proteinPerKg: 2.0, fatPct: 25, drinkLimit: 150,
   },
@@ -83,7 +82,16 @@ function latestWeight(upTo = cur) {
 function bmr(p, w) {
   return 10 * w + 6.25 * p.height - 5 * p.age + (p.sex === 'male' ? 5 : -161);
 }
-function tdee() { return bmr(S.profile, latestWeight()) * S.profile.activity; }
+// 公式估算的每日消耗：有 Apple 健康資料時用「近 14 天實際活動能量」，
+// 否則暫用一般輕度活動（BMR × 1.375）。
+// BMR × 1.15 ＝ 基礎代謝＋消化食物（約 10%）＋少量未被手錶算到的日常活動。
+const DEFAULT_ACTIVITY_FACTOR = 1.375;
+function formulaTdee(date = cur, weight = latestWeight(date)) {
+  const b = bmr(S.profile, weight);
+  const a = activityInfo(date);
+  return a?.ready ? b * 1.15 + a.baseline : b * DEFAULT_ACTIVITY_FACTOR;
+}
+function tdee() { return formulaTdee(cur); }
 
 // ---------- 依體重趨勢自動修正每日消耗（每週一更新） ----------
 // 觀念：實際消耗 ≈ 平均攝取 − 每天體重變化 × 7700 kcal/kg。
@@ -100,7 +108,7 @@ function adaptive(date = cur) {
   if (adaptCache.has(key)) return adaptCache.get(key);
   const end = addDays(since, -1);
   const start = addDays(since, -ADAPT_DAYS);
-  const formula = bmr(S.profile, latestWeight(end)) * S.profile.activity;
+  const formula = formulaTdee(end, latestWeight(end));
 
   // 攝取：只算「有認真記完」的日子（低於估計消耗 40% 視為沒記完整）
   const perDay = new Map();
@@ -140,11 +148,10 @@ function currentTdee(date = cur) {
   }
   return tdee();
 }
-const isAutoAdjusted = (date = cur) => S.profile.autoAdjust && !(S.profile.calorieOverride > 0) && adaptive(date).ready;
+const isAutoAdjusted = (date = cur) => S.profile.autoAdjust && adaptive(date).ready;
 
 function calorieGoal() {
   const p = S.profile;
-  if (p.calorieOverride > 0) return p.calorieOverride;
   const floor = p.sex === 'male' ? 1500 : 1200;
   return Math.max(floor, Math.round((currentTdee() + (p.weeklyGoal * KCAL_PER_KG) / 7) / 10) * 10);
 }
@@ -552,7 +559,7 @@ function adaptiveCard() {
       <div><b>${wk > 0 ? '+' : ''}${r1(wk)}</b><small>體重 kg／週</small></div>
     </div>
     <p class="note">依你最近 3 週（${short(a.start)}～${short(a.end)}）平均每天吃 ${r0(a.avgIntake)} kcal、體重每週${wk < 0 ? '減少' : '增加'} ${Math.abs(r1(wk))} kg 推算，你每天大約消耗 <b>${est.toLocaleString()} kcal</b>，
-      比公式估的 ${f.toLocaleString()} ${diff >= 0 ? '多' : '少'} ${Math.abs(diff)} kcal。${S.profile.autoAdjust && !(S.profile.calorieOverride > 0) ? '本週的熱量目標已經依此調整。' : '（自動修正目前關閉，可以到設定打開）'}
+      比公式估的 ${f.toLocaleString()} ${diff >= 0 ? '多' : '少'} ${Math.abs(diff)} kcal。${S.profile.autoAdjust ? '本週的熱量目標已經依此調整。' : '（自動修正目前關閉，可以到設定打開）'}
       ${a.conf < 1 ? `<br/>資料還不算多（可信度 ${r0(a.conf * 100)}%），所以先部分參考公式；記錄越完整會越準。` : ''}
       ${a.clamped ? '<br/>⚠️ 推算結果和公式差太多，可能有幾天沒記完整，已先限制在公式的 ±30% 內。' : ''}</p>
   </div>`;
@@ -580,7 +587,11 @@ function weightChart(points, unit = 'kg') {
 function renderSettings() {
   const p = S.profile;
   const opt = (list, v) => list.map(([val, label]) => `<option value="${val}" ${+val === +v ? 'selected' : ''}>${label}</option>`).join('');
-  const auto = (() => { const o = p.calorieOverride; p.calorieOverride = 0; const g = calorieGoal(); p.calorieOverride = o; return g; })();
+  const auto = calorieGoal();
+  const act = activityInfo(today());
+  const actNote = act?.ready ? `近 14 天平均活動 <b>${r0(act.baseline)}</b> kcal（Apple 健康）`
+    : S.health.enabled ? `Apple 健康資料累積中（${act?.n || 0}/${BASELINE_MIN} 天），暫用一般活動量估算`
+    : '尚未同步活動資料，暫用一般活動量估算';
   $('#view-settings').innerHTML = `
     <form id="profile-form" class="card">
       <div class="card-head"><h3>個人資料與目標</h3></div>
@@ -590,13 +601,12 @@ function renderSettings() {
         <label>身高 cm<input name="height" type="number" inputmode="decimal" min="100" max="250" step="0.1" value="${p.height}" /></label>
         <label>體重 kg<input name="weight" type="number" inputmode="decimal" min="20" max="400" step="0.1" value="${r1(latestWeight(today()))}" /></label>
       </div>
-      <label>日常活動量<select name="activity">${opt(ACTIVITY, p.activity)}</select></label>
       <label>目標<select name="weeklyGoal">${opt(WEEKLY, p.weeklyGoal)}</select></label>
       <label class="check"><input type="checkbox" name="autoAdjust" ${p.autoAdjust ? 'checked' : ''} /> 依體重趨勢自動修正（每週一更新，建議開啟）</label>
-      <p class="note num">基礎代謝 BMR ≈ <b>${r0(bmr(p, latestWeight(today())))}</b> kcal · 公式估算每日消耗 ≈ <b>${r0(tdee())}</b> kcal
+      <p class="note num">基礎代謝 BMR ≈ <b>${r0(bmr(p, latestWeight(today())))}</b> kcal · ${actNote}
+        <br/>估算每日消耗 ≈ <b>${r0(formulaTdee(today()))}</b> kcal
         ${adaptive(today()).ready ? `<br/>依你的紀錄推算實際消耗 ≈ <b>${r0(adaptive(today()).est)}</b> kcal` : '<br/>實際消耗：資料累積中（詳見「進度」頁）'}
         <br/>${p.autoAdjust && adaptive(today()).ready ? '已自動修正的' : ''}建議每日攝取：<b>${auto}</b> kcal</p>
-      <label>自訂每日熱量目標（0 = 使用建議值）<input name="calorieOverride" type="number" inputmode="numeric" min="0" step="10" value="${p.calorieOverride || 0}" /></label>
       <label>目標模式<select name="mode">
         <option value="abs" ${p.mode === 'abs' ? 'selected' : ''}>🔥 減脂・腹肌（蛋白質依體重計算）</option>
         <option value="general" ${p.mode !== 'abs' ? 'selected' : ''}>一般（三大營養素比例）</option>
@@ -659,8 +669,8 @@ function renderSettings() {
     const newW = num(fd.get('weight'));
     Object.assign(S.profile, {
       sex: fd.get('sex'), age: num(fd.get('age')), height: num(fd.get('height')),
-      activity: num(fd.get('activity')), weeklyGoal: num(fd.get('weeklyGoal')),
-      calorieOverride: num(fd.get('calorieOverride')), macros: { c: mc, p: mp, f: mf }, autoAdjust: !!fd.get('autoAdjust'),
+      weeklyGoal: num(fd.get('weeklyGoal')),
+      macros: { c: mc, p: mp, f: mf }, autoAdjust: !!fd.get('autoAdjust'),
       mode, proteinPerKg: num(fd.get('ppk')) || 2, fatPct: num(fd.get('fpct')) || 25, drinkLimit: num(fd.get('dlim')),
     });
     if (newW && r1(newW) !== r1(latestWeight(today()))) {

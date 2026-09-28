@@ -49,8 +49,9 @@
     </form>
     <div class="chip-row">
       <button class="chip" data-action="scan">📷 掃條碼</button>
-      <button class="chip" data-action="quick-add">⚡ 快速加熱量</button>
-      <button class="chip" data-action="new-custom">＋ 自訂食物</button>
+      <button class="chip" data-action="new-custom">✏️ 自行輸入</button>
+      <button class="chip" data-action="drink">🧋 手搖飲</button>
+      <button class="chip" data-action="quick-add">⚡ 只記熱量</button>
     </div>
     <div id="food-results" class="list"></div>
   </dialog>
@@ -91,10 +92,30 @@
         <label>碳水 g<input name="c" type="number" inputmode="decimal" min="0" step="any" /></label>
         <label>脂肪 g<input name="f" type="number" inputmode="decimal" min="0" step="any" /></label>
       </div>
+      <label class="check" id="custom-save-wrap"><input type="checkbox" name="saveMine" checked /> 存到「我的食物」，下次可以直接搜尋</label>
       <input type="hidden" name="mode" />
       <input type="hidden" name="barcode" />
       <input type="hidden" name="editId" />
       <div class="btn-row"><button type="submit" class="btn primary" id="custom-submit">儲存</button></div>
+    </form>
+  </dialog>
+
+  <!-- 手搖飲計算機 -->
+  <dialog id="dlg-drink" class="sheet">
+    <form id="drink-form" method="dialog">
+      <div class="sheet-head">
+        <h2>🧋 手搖飲計算</h2>
+        <button type="button" class="icon-btn" data-close aria-label="關閉">✕</button>
+      </div>
+      <p class="field-title">飲料</p><div class="seg" id="drink-base"></div>
+      <p class="field-title">杯型</p><div class="seg" id="drink-size"></div>
+      <p class="field-title">甜度</p><div class="seg" id="drink-sugar"></div>
+      <p class="field-title">配料（可複選）</p><div class="seg" id="drink-toppings"></div>
+      <label>店家／備註（選填）<input name="note" placeholder="例如：50嵐、可不可" /></label>
+      <label>記在<select id="drink-meal"></select></label>
+      <div class="drink-total"><b class="num" id="drink-kcal">0</b> kcal <span class="muted" id="drink-detail"></span></div>
+      <p class="muted">各店配方不同，數字僅供估算；想要更準可以用「自行輸入」填店家公布的熱量。</p>
+      <div class="btn-row"><button type="submit" class="btn primary">加入</button></div>
     </form>
   </dialog>
 

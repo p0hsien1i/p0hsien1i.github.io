@@ -1,4 +1,4 @@
-import { FOODS } from './foods.js';
+import { FOODS, DRINK_BASES, DRINK_SIZES, DRINK_SUGARS, DRINK_TOPPINGS, FULL_SUGAR_G_700 } from './foods.js';
 
 // ================= utils =================
 const $ = (s, el = document) => el.querySelector(s);
@@ -35,8 +35,9 @@ function toast(msg) {
 
 // ================= state =================
 const KEY = 'fanfit:v1';
-const MEALS = [['breakfast', '早餐'], ['lunch', '午餐'], ['dinner', '晚餐'], ['snack', '點心']];
+const MEALS = [['breakfast', '早餐'], ['lunch', '午餐'], ['dinner', '晚餐'], ['snack', '點心'], ['drinks', '飲料']];
 const mealName = (m) => (MEALS.find((x) => x[0] === m) || MEALS[3])[1];
+const mealIcon = { breakfast: '🌅', lunch: '🍱', dinner: '🍲', snack: '🍪', drinks: '🧋' };
 const ACTIVITY = [[1.2, '久坐（幾乎不運動）'], [1.375, '輕度（每週 1–3 天）'], [1.55, '中度（每週 3–5 天）'], [1.725, '高度（每週 6–7 天）']];
 const WEEKLY = [[-1, '每週減 1 kg'], [-0.75, '每週減 0.75 kg'], [-0.5, '每週減 0.5 kg'], [-0.25, '每週減 0.25 kg'], [0, '維持體重'], [0.25, '每週增 0.25 kg'], [0.5, '每週增 0.5 kg']];
 
@@ -162,7 +163,7 @@ function renderHome() {
           const mt = foodTotals(cur, k);
           const cnt = S.entries.filter((e) => e.date === cur && e.meal === k).length;
           return `<button class="row" data-action="add-food" data-meal="${k}">
-            <div class="grow"><div class="name">${n}</div><div class="sub">${cnt ? `${cnt} 項` : '尚未記錄 — 點此新增'}</div></div>
+            <div class="grow"><div class="name">${mealIcon[k]} ${n}</div><div class="sub">${cnt ? `${cnt} 項` : '尚未記錄 — 點此新增'}</div></div>
             <div class="kcal num">${cnt ? r0(mt.kcal) + ' kcal' : '＋'}</div></button>`;
         }).join('')}
       </div>
@@ -209,7 +210,7 @@ function renderDiary() {
       const items = S.entries.filter((e) => e.date === cur && e.meal === k);
       const hasYesterday = S.entries.some((e) => e.date === yesterday && e.meal === k);
       return `<div class="card">
-        <div class="card-head"><h3>${n}</h3><span class="kcal num">${r0(foodTotals(cur, k).kcal)} kcal</span></div>
+        <div class="card-head"><h3>${mealIcon[k]} ${n}</h3><span class="kcal num">${r0(foodTotals(cur, k).kcal)} kcal</span></div>
         <div class="list">${items.length ? items.map((e) => {
           const nn = nut(e);
           return `<button class="row" data-action="edit-entry" data-id="${e.id}">
@@ -218,7 +219,9 @@ function renderDiary() {
             <div class="kcal num">${r0(nn.kcal)}</div></button>`;
         }).join('') : '<div class="empty">還沒有記錄</div>'}</div>
         <div class="btn-row start">
-          <button class="link-btn" data-action="add-food" data-meal="${k}">＋ 新增食物</button>
+          <button class="link-btn" data-action="add-food" data-meal="${k}">＋ ${k === 'drinks' ? '新增飲料' : '新增食物'}</button>
+          ${k === 'drinks' ? `<button class="link-btn" data-action="drink" data-meal="${k}">🧋 手搖飲計算</button>` : ''}
+          <button class="link-btn" data-action="manual" data-meal="${k}">✏️ 自行輸入</button>
           ${hasYesterday && !items.length ? `<button class="link-btn" data-action="copy-meal" data-meal="${k}">↻ 複製昨天的${n}</button>` : ''}
         </div>
       </div>`;
@@ -395,10 +398,18 @@ function showLocalResults(q) {
   const box = $('#food-results');
   const query = q.trim().toLowerCase();
   if (!query) {
+    if (foodMeal === 'drinks') {
+      const isDrink = (f) => /drink/.test(f.tags || '') || String(f.id).startsWith('drink:');
+      const recent = S.recents.filter(isDrink);
+      lists.local = [...recent, ...FOODS.filter(isDrink)];
+      box.innerHTML = (recent.length ? `<div class="list-section">最近喝過</div>${recent.map((f, i) => foodRow(f, i, 'local')).join('')}` : '') +
+        `<div class="list-section">常見飲料</div>${lists.local.slice(recent.length).map((f, i) => foodRow(f, i + recent.length, 'local')).join('')}`;
+      return;
+    }
     lists.local = [...S.recents];
     box.innerHTML = lists.local.length
       ? `<div class="list-section">最近吃過</div>${lists.local.map((f, i) => foodRow(f, i, 'local')).join('')}`
-      : '<p class="empty">輸入食物名稱搜尋，或用掃條碼、快速加熱量。找不到的食物可以自己新增。</p>';
+      : '<p class="empty">輸入食物名稱搜尋，或用掃條碼、手搖飲計算。找不到的食物可以按「自行輸入」。</p>';
     return;
   }
   const match = (f) => (f.name + ' ' + (f.brand || '') + ' ' + (f.tags || '')).toLowerCase().includes(query);
@@ -521,6 +532,7 @@ function openCustom(mode, preset = {}) {
   form.editId.value = mode === 'edit' ? preset.id : '';
   $('#custom-title').textContent = { quick: '快速加熱量', custom: '新增食物', edit: '編輯自訂食物' }[mode];
   $('#custom-serving-wrap').hidden = mode === 'quick';
+  $('#custom-save-wrap').hidden = mode !== 'custom';
   $('#custom-submit').textContent = mode === 'custom' ? '儲存並加入' : '儲存';
   const hint = [];
   if (preset.barcode) hint.push(`條碼 ${preset.barcode}：儲存後下次掃這個條碼就會直接找到。`);
@@ -560,11 +572,65 @@ $('#custom-form').addEventListener('submit', (e) => {
     toast('已更新（之前記錄的份量不受影響）');
   } else {
     const food = { id: 'custom:' + uid(), ...fields };
-    if (food.barcode) S.customFoods = S.customFoods.filter((x) => x.barcode !== food.barcode);
-    S.customFoods.unshift(food);
-    save();
+    if (fd.get('saveMine')) {
+      if (food.barcode) S.customFoods = S.customFoods.filter((x) => x.barcode !== food.barcode);
+      S.customFoods.unshift(food);
+      save();
+    }
     openQty(food);
   }
+});
+
+// ================= 手搖飲計算機 =================
+function openDrink(meal) {
+  const radios = (name, list, checkedId) => list.map((x) =>
+    `<label><input type="radio" name="${name}" value="${x.id}" ${x.id === checkedId ? 'checked' : ''} />${x.name}</label>`).join('');
+  $('#drink-base').innerHTML = radios('base', DRINK_BASES, 'milktea');
+  $('#drink-size').innerHTML = radios('size', DRINK_SIZES.map((z) => ({ ...z, name: `${z.name} ${z.ml}ml` })), 'L');
+  $('#drink-sugar').innerHTML = radios('sugar', DRINK_SUGARS, 30);
+  $('#drink-toppings').innerHTML = DRINK_TOPPINGS.map((t) =>
+    `<label><input type="checkbox" name="top" value="${t.id}" />${t.name}</label>`).join('');
+  $('#drink-meal').innerHTML = MEALS.map(([k, n]) => `<option value="${k}" ${k === (meal || 'drinks') ? 'selected' : ''}>${n}</option>`).join('');
+  $('#drink-form').note.value = '';
+  updateDrink();
+  $('#dlg-drink').showModal();
+}
+
+function buildDrink() {
+  const form = $('#drink-form');
+  const base = DRINK_BASES.find((b) => b.id === form.base.value);
+  const size = DRINK_SIZES.find((z) => z.id === form.size.value);
+  const sugar = DRINK_SUGARS.find((x) => String(x.id) === form.sugar.value);
+  const tops = [...form.querySelectorAll('input[name=top]:checked')].map((i) => DRINK_TOPPINGS.find((t) => t.id === i.value));
+  const ratio = size.ml / 700;
+  const sugarG = FULL_SUGAR_G_700 * ratio * (sugar.id / 100);
+  const n = { kcal: base.kcal * ratio + sugarG * 4, p: base.p * ratio, c: base.c * ratio + sugarG, f: base.f * ratio };
+  for (const t of tops) { n.kcal += t.kcal; n.p += t.p; n.c += t.c; n.f += t.f; }
+  const shortBase = base.name.replace(/（.*）/, '');
+  const note = form.note.value.trim();
+  const name = `${note ? note + ' ' : ''}${shortBase}${tops.length ? '＋' + tops.map((t) => t.name).join('＋') : ''}（${size.name}・${sugar.name}）`;
+  return {
+    food: { id: 'drink:' + uid(), name, serving: `1 杯 (${size.ml}ml)`, kcal: r0(n.kcal), p: r1(n.p), c: r1(n.c), f: r1(n.f), tags: 'drink 手搖飲' },
+    sugarG,
+  };
+}
+
+function updateDrink() {
+  const { food, sugarG } = buildDrink();
+  $('#drink-kcal').textContent = food.kcal;
+  $('#drink-detail').textContent = `· 糖約 ${r0(sugarG)} g · 碳水 ${r0(food.c)} g`;
+}
+$('#drink-form').addEventListener('change', updateDrink);
+$('#drink-form').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const { food } = buildDrink();
+  S.entries.push({ id: uid(), date: cur, meal: $('#drink-meal').value, food, amount: 1, qty: 1 });
+  rememberFood(food);
+  save();
+  $('#dlg-drink').close();
+  $('#dlg-food').close();
+  toast(`已加入：${food.name}（${food.kcal} kcal）`);
+  render();
 });
 
 // ================= barcode =================
@@ -731,6 +797,8 @@ document.addEventListener('click', (e) => {
     case 'pick-food': openQty({ ...lists[d.list][+d.i] }); break;
     case 'edit-entry': { const en = S.entries.find((x) => x.id === d.id); if (en) openQty(en.food, en); break; }
     case 'quick-add': openCustom('quick'); break;
+    case 'manual': foodMeal = d.meal || defaultMeal(); openCustom('custom'); break;
+    case 'drink': openDrink(d.meal || 'drinks'); break;
     case 'new-custom':
       if ($('#dlg-scan').open) $('#dlg-scan').close();
       openCustom('custom', { name: d.name, barcode: d.barcode });

@@ -1484,4 +1484,33 @@ render();
 fetchHealth();
 offerRestoreIfEmpty();
 
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+// ================= 自動更新 =================
+// 每次打開或切回 App 都檢查 sw.js 有沒有新版；有的話新版接手後自動重新載入一次。
+if ('serviceWorker' in navigator) {
+  const hadController = !!navigator.serviceWorker.controller;
+  let reloading = false;
+  const reloadForUpdate = () => {
+    if (reloading) return;
+    // 正在填表單（對話框開著）時先不重新載入，等下次切回 App 再更新
+    if (document.querySelector('dialog[open]')) { pendingUpdate = true; return; }
+    reloading = true;
+    try { sessionStorage.setItem('fanfit:updated', '1'); } catch { /* 忽略 */ }
+    location.reload();
+  };
+  let pendingUpdate = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => { if (hadController) reloadForUpdate(); });
+  navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then((reg) => {
+    reg.update().catch(() => {});
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState !== 'visible') return;
+      if (pendingUpdate) reloadForUpdate();
+      else reg.update().catch(() => {});
+    });
+  }).catch(() => {});
+  try {
+    if (sessionStorage.getItem('fanfit:updated')) {
+      sessionStorage.removeItem('fanfit:updated');
+      setTimeout(() => toast('已更新到最新版 ✨'), 300);
+    }
+  } catch { /* 忽略 */ }
+}

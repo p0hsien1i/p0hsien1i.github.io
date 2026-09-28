@@ -1,0 +1,11 @@
+# apo-health worker 部署設定（由 .github/workflows/deploy-health-worker.yml 使用）
+# 網址：https://apo-health.pohsienbrianli.workers.dev
+name = "apo-health"
+main = "worker.js"
+compatibility_date = "2026-01-01"
+account_id = "4c4dafb959f8ff4ffec435b07602a9b8"
+
+# KV namespace 的 id 會由部署 workflow 自動建立並填入（__KV_ID__ 會被取代）
+[[kv_namespaces]]
+binding = "HEALTH"
+id = "__KV_ID__"

@@ -50,13 +50,15 @@ const defaults = () => ({
   weights: {}, // { 'YYYY-MM-DD': kg }
   customFoods: [],
   recents: [],
+  // Apple 健康同步（iPhone 捷徑 → apo-health worker → 這裡）
+  health: { enabled: false, endpoint: 'https://apo-health.pohsienbrianli.workers.dev', token: '', days: {}, updatedAt: null, fetchedAt: null, error: '' },
 });
 
 function load() {
   const d = defaults();
   try {
     const raw = JSON.parse(localStorage.getItem(KEY) || 'null');
-    if (raw) return { ...d, ...raw, profile: { ...d.profile, ...raw.profile, macros: { ...d.profile.macros, ...raw.profile?.macros } } };
+    if (raw) return { ...d, ...raw, profile: { ...d.profile, ...raw.profile, macros: { ...d.profile.macros, ...raw.profile?.macros } }, health: { ...d.health, ...raw.health } };
   } catch { /* 讀不到就用預設值 */ }
   return d;
 }
@@ -143,6 +145,31 @@ function calorieGoal() {
   const floor = p.sex === 'male' ? 1500 : 1200;
   return Math.max(floor, Math.round((currentTdee() + (p.weeklyGoal * KCAL_PER_KG) / 7) / 10) * 10);
 }
+
+// ---------- Apple 健康活動加成 ----------
+// 平常的活動量已經包含在目標裡（公式的活動量係數／體重趨勢修正），
+// 所以只把「今天比平常多動的部分」加回 70%，避免重複計算。
+const ACTIVITY_ADD_BACK = 0.7;
+const BASELINE_DAYS = 14;
+const BASELINE_MIN = 5;
+function activityInfo(date = cur) {
+  const h = S.health;
+  if (!h.enabled) return null;
+  const days = h.days || {};
+  const todayKcal = days[date];
+  const past = Array.from({ length: BASELINE_DAYS }, (_, i) => addDays(date, -1 - i)).filter((d) => days[d] != null);
+  const baseline = past.length ? past.reduce((a, d) => a + days[d], 0) / past.length : null;
+  const ready = past.length >= BASELINE_MIN;
+  const extra = ready && todayKcal != null ? todayKcal - baseline : 0;
+  const bonus = extra > 0 ? Math.round((extra * ACTIVITY_ADD_BACK) / 10) * 10 : 0;
+  return { todayKcal, baseline, n: past.length, ready, extra, bonus };
+}
+// 今天實際可以吃的額度＝目標＋活動加成
+function dayBudget(date = cur) {
+  const a = activityInfo(date);
+  return calorieGoal() + (a?.bonus || 0);
+}
+
 function macroGoals(kcal) {
   const m = S.profile.macros;
   return { c: (kcal * m.c) / 400, p: (kcal * m.p) / 400, f: (kcal * m.f) / 900 };
@@ -210,8 +237,26 @@ function coachLine(eaten, remain, goal, pLeft) {
   return `還有 ${remain} kcal 的空間，蛋白質已經達標 👍`;
 }
 
+function healthLine(a) {
+  if (!a) return '';
+  const h = S.health;
+  const when = h.updatedAt ? new Date(h.updatedAt) : null;
+  const upd = when ? `更新於 ${when.toDateString() === new Date().toDateString() ? '' : `${when.getMonth() + 1}/${when.getDate()} `}${pad(when.getHours())}:${pad(when.getMinutes())}` : '';
+  let text;
+  if (h.error) text = `⌚ Apple 健康同步失敗：${esc(h.error)}`;
+  else if (!Object.keys(h.days || {}).length) text = '⌚ 還沒收到 Apple 健康的資料，照<a href="apple-health.html">設定教學</a>跑一次捷徑。';
+  else if (a.todayKcal == null) text = `⌚ 今天還沒有活動資料 <span class="muted">${upd}</span>`;
+  else if (!a.ready) text = `⌚ 今日活動 <b>${r0(a.todayKcal)}</b> kcal · 正在建立你的平常活動量（${a.n}/${BASELINE_MIN} 天）`;
+  else if (a.bonus > 0) text = `⌚ 今日活動 <b>${r0(a.todayKcal)}</b> kcal，比平常多 ${r0(a.extra)} → 額度 <b class="plus">+${a.bonus}</b> kcal <span class="muted">${upd}</span>`;
+  else text = `⌚ 今日活動 <b>${r0(a.todayKcal)}</b> kcal（平常約 ${r0(a.baseline)}） <span class="muted">${upd}</span>`;
+  return `<div class="health-line"><div class="grow">${text}</div>
+    <a class="icon-btn" href="shortcuts://run-shortcut?name=${encodeURIComponent(HEALTH_SHORTCUT)}" aria-label="執行捷徑立即同步" title="立即同步">🔄</a></div>`;
+}
+
 function renderHome() {
-  const goal = calorieGoal();
+  const act = activityInfo(cur);
+  const base = calorieGoal();
+  const goal = base + (act?.bonus || 0);
   const t = foodTotals(cur);
   const eaten = r0(t.kcal);
   const remain = goal - eaten;
@@ -236,11 +281,12 @@ function renderHome() {
         </div>
       </div>
       <div class="hero-stats num">
-        <div><small>${isAutoAdjusted() ? '目標（已自動修正）' : '目標'}</small><b>${goal.toLocaleString()}</b></div>
+        <div><small>${act?.bonus ? `今日額度（活動 +${act.bonus}）` : isAutoAdjusted() ? '目標（已自動修正）' : '目標'}</small><b>${goal.toLocaleString()}</b></div>
         <div><small>已吃</small><b>${eaten.toLocaleString()}</b></div>
         <div><small>進度</small><b>${goal ? r0((eaten / goal) * 100) : 0}%</b></div>
       </div>
       <p class="coach">${esc(coachLine(eaten, remain, goal, pLeft))}</p>
+      ${healthLine(act)}
     </div>
 
     <div class="card">
@@ -302,7 +348,7 @@ function weekChart() {
 }
 
 function renderDiary() {
-  const goal = calorieGoal();
+  const goal = dayBudget(cur);
   const t = foodTotals(cur);
   const yesterday = addDays(cur, -1);
   $('#view-diary').innerHTML = `
@@ -458,6 +504,22 @@ function renderSettings() {
       <div class="btn-row"><button class="btn primary">儲存設定</button></div>
     </form>
 
+    <form id="health-form" class="card">
+      <div class="card-head"><h3>⌚ Apple 健康同步</h3><span class="muted">${S.health.enabled ? (S.health.error ? '⚠️ 有問題' : '已啟用') : '未啟用'}</span></div>
+      <p class="muted">用 iPhone 捷徑把 Garmin 寫進 Apple 健康的「活動能量」送進來。你平常的活動量已經算在目標裡，所以只有<b>比平常多動的部分</b>會加回 70% 到當天的額度。<a href="apple-health.html">一步一步設定教學 ›</a></p>
+      <label class="check"><input type="checkbox" name="enabled" ${S.health.enabled ? 'checked' : ''} /> 啟用 Apple 健康同步</label>
+      <label>接收端網址<input name="endpoint" value="${esc(S.health.endpoint)}" autocomplete="off" spellcheck="false" /></label>
+      <label>同步密碼（捷徑和這裡要填同一組）
+        <div class="search-row"><input name="token" type="password" value="${esc(S.health.token)}" autocomplete="off" spellcheck="false" placeholder="按「產生」建立一組" />
+        <button type="button" class="btn" data-action="gen-token">產生</button></div></label>
+      <div class="btn-row start">
+        <button class="btn primary">儲存並測試連線</button>
+        <button type="button" class="btn" data-action="copy-token">複製密碼</button>
+      </div>
+      <p class="note num" id="health-status">${S.health.error ? '⚠️ ' + esc(S.health.error)
+        : S.health.updatedAt ? `最後收到資料：${new Date(S.health.updatedAt).toLocaleString('zh-TW')} · 共 ${Object.keys(S.health.days).length} 天` : '還沒有收到資料。'}</p>
+    </form>
+
     <div class="card">
       <div class="card-head"><h3>自訂食物</h3><span class="muted">${S.customFoods.length} 項</span></div>
       <div class="list">${S.customFoods.length ? S.customFoods.map((f) => `<div class="row"><button class="grow link-row" data-action="edit-custom" data-id="${f.id}"><div class="name">${esc(f.name)}</div>
@@ -494,6 +556,22 @@ function renderSettings() {
     save();
     renderSettings();
     toast('已儲存');
+  });
+  $('#health-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    Object.assign(S.health, {
+      enabled: !!fd.get('enabled'),
+      endpoint: String(fd.get('endpoint') || '').trim().replace(/\/+$/, ''),
+      token: String(fd.get('token') || '').trim(),
+    });
+    save();
+    if (!S.health.enabled) { S.health.error = ''; save(); renderSettings(); toast('已儲存（同步未啟用）'); return; }
+    if (!S.health.token) { toast('請先填同步密碼'); return; }
+    $('#health-status').textContent = '測試連線中…';
+    const ok = await fetchHealth(true);
+    renderSettings();
+    toast(ok ? '連線成功 ✅' : '連線失敗，請看下面的錯誤訊息');
   });
   $('#import-file').addEventListener('change', async (e) => {
     const file = e.target.files[0];
@@ -942,6 +1020,21 @@ document.addEventListener('click', (e) => {
     case 'pick-food': openQty({ ...lists[d.list][+d.i] }); break;
     case 'edit-entry': { const en = S.entries.find((x) => x.id === d.id); if (en) openQty(en.food, en); break; }
     case 'quick-add': openCustom('quick'); break;
+    case 'gen-token': {
+      const bytes = crypto.getRandomValues(new Uint8Array(24));
+      const tok = btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+      const inp = $('#health-form [name=token]');
+      inp.value = tok;
+      inp.type = 'text';
+      toast('已產生，記得按「儲存並測試連線」');
+      break;
+    }
+    case 'copy-token': {
+      const v = $('#health-form [name=token]').value;
+      if (!v) { toast('還沒有密碼'); break; }
+      navigator.clipboard?.writeText(v).then(() => toast('已複製密碼'), () => { const i = $('#health-form [name=token]'); i.type = 'text'; i.select(); toast('請長按手動複製'); });
+      break;
+    }
     case 'manual': foodMeal = d.meal || defaultMeal(); openCustom('custom'); break;
     case 'drink': openDrink(d.meal || 'drinks'); break;
     case 'new-custom':
@@ -959,7 +1052,8 @@ document.addEventListener('click', (e) => {
     case 'del-weight': delete S.weights[d.date]; save(); render(); break;
     case 'del-custom': S.customFoods = S.customFoods.filter((f) => f.id !== d.id); save(); render(); break;
     case 'export': {
-      const blob = new Blob([JSON.stringify(S, null, 1)], { type: 'application/json' });
+      // 備份檔不含同步密碼
+      const blob = new Blob([JSON.stringify({ ...S, health: { ...S.health, token: '' } }, null, 1)], { type: 'application/json' });
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
       a.download = `fanfit-backup-${today()}.json`;
@@ -997,9 +1091,40 @@ document.addEventListener('submit', (e) => {
   toast('體重已記錄');
 });
 
+// ================= Apple 健康同步 =================
+const HEALTH_SHORTCUT = 'Chef同步';
+const HEALTH_REFRESH_MS = 60 * 60 * 1000; // App 開著時每小時重新抓一次
+let healthBusy = false;
+async function fetchHealth(force = false) {
+  const h = S.health;
+  if (!h.enabled || !h.token || !h.endpoint || healthBusy) return false;
+  if (!force && h.fetchedAt && Date.now() - h.fetchedAt < 5 * 60 * 1000) return true;
+  healthBusy = true;
+  try {
+    const res = await fetch(h.endpoint + '/data', { headers: { Authorization: 'Bearer ' + h.token }, cache: 'no-store' });
+    if (res.status === 401) throw new Error('密碼不對（和捷徑、GitHub 上設定的不一致）');
+    if (!res.ok) throw new Error('接收端回應 ' + res.status);
+    const data = await res.json();
+    h.days = data.days || {};
+    h.updatedAt = data.updatedAt || null;
+    h.fetchedAt = Date.now();
+    h.error = '';
+    return true;
+  } catch (e) {
+    h.error = e.message === 'Failed to fetch' ? '連不到接收端（網址錯誤、還沒部署，或沒有網路）' : e.message;
+    return false;
+  } finally {
+    healthBusy = false;
+    save();
+    if (view !== 'settings') render();
+  }
+}
+setInterval(() => fetchHealth(true), HEALTH_REFRESH_MS);
+
 // 跨午夜後重新開啟 App 時，自動跳到今天
 let lastToday = today();
 document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') fetchHealth(); // 從捷徑切回來時更新
   if (document.visibilityState === 'visible' && today() !== lastToday) {
     if (cur === lastToday) cur = today();
     lastToday = today();
@@ -1014,5 +1139,6 @@ window.addEventListener('hashchange', () => {
 });
 if (VIEWS.includes(location.hash.slice(1))) view = location.hash.slice(1);
 render();
+fetchHealth();
 
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});

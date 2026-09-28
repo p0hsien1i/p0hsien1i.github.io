@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Apple 健康同步設定 · Brian as the Chef</title>
+  <meta name="robots" content="noindex" />
+  <meta name="theme-color" content="#e10600" />
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="app.css" />
+  <style>
+    body { padding-bottom: 32px; }
+    .guide h2 { font-size: 1.1rem; margin-bottom: 4px; }
+    .guide ol { padding-left: 22px; margin: 8px 0 0; }
+    .guide li { margin: 8px 0; line-height: 1.6; }
+    .guide code, .guide kbd {
+      font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: .85em;
+      background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; padding: 1px 5px; word-break: break-all;
+    }
+    .guide .step-no { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 999px; background: var(--accent); color: #fff; font-size: .85rem; margin-right: 6px; }
+    .guide .act { display: block; margin: 6px 0; padding: 8px 10px; border-radius: 10px; background: var(--surface-2); font-size: .9rem; }
+    .guide .act b { color: var(--accent-text); }
+    .back { display: inline-block; margin: 4px 0 8px; color: var(--accent-text); font-weight: 700; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <h1 class="brand"><img src="icon.svg" alt="" width="24" height="24" /><span>Brian <em>as the</em> Chef</span></h1>
+  </header>
+  <main class="guide">
+    <a class="back" href="./#settings">‹ 回到 App 設定</a>
+
+    <div class="card">
+      <h2>⌚ Apple 健康同步：整體流程</h2>
+      <p class="muted">手錶 → Garmin Connect → Apple 健康 →（iPhone 捷徑，每小時）→ 你的 Cloudflare 接收端 → App</p>
+      <p class="note">大約需要 20–30 分鐘，只要設定一次。第 1、2 步用電腦比較方便，第 3～6 步在 iPhone 上做。<br/>
+      App 只會把「今天比平常多動的部分」加回 70% 到當天的額度（平常的活動量已經算在目標裡，避免重複計算）。</p>
+    </div>
+
+    <div class="card">
+      <h2><span class="step-no">1</span>產生同步密碼</h2>
+      <ol>
+        <li>打開 App →「設定」→「⌚ Apple 健康同步」。</li>
+        <li>按「產生」，會出現一串亂碼密碼。勾選「啟用 Apple 健康同步」，按「儲存並測試連線」（這時候會顯示連不到，正常，因為接收端還沒部署）。</li>
+        <li>按「複製密碼」，先貼到備忘錄，等一下第 2、5 步都會用到。<b>不要分享給別人。</b></li>
+      </ol>
+    </div>
+
+    <div class="card">
+      <h2><span class="step-no">2</span>部署接收端（GitHub）</h2>
+      <ol>
+        <li>到 GitHub 的 <code>p0hsien1i.github.io</code> repo →「Settings」→「Secrets and variables」→「Actions」→「New repository secret」。</li>
+        <li>Name 填 <code>HEALTH_SYNC_TOKEN</code>，Secret 貼上第 1 步的密碼 →「Add secret」。<br/>
+          <span class="muted">（<code>CLOUDFLARE_API_TOKEN</code> 之前做留言系統時已經設定過，不用再加）</span></li>
+        <li>到 repo 的「Actions」分頁 → 左邊選「Deploy health worker」→ 右邊「Run workflow」→ 綠色「Run workflow」。</li>
+        <li>等 1～2 分鐘出現綠色勾勾 ✅。用瀏覽器打開 <code>https://apo-health.pohsienbrianli.workers.dev</code>，看到 <code>{"ok":true,"service":"apo-health"}</code> 就成功了。</li>
+        <li>回 App「設定」按一次「儲存並測試連線」，應該會顯示「連線成功」。</li>
+      </ol>
+      <p class="note">⚠️ 如果在「Find or create KV namespace」這步失敗：到 Cloudflare → My Profile → API Tokens，編輯留言系統用的那個權杖，確認有「Account → Workers KV Storage → Edit」權限，再重跑一次。</p>
+    </div>
+
+    <div class="card">
+      <h2><span class="step-no">3</span>讓 Garmin 寫入 Apple 健康</h2>
+      <ol>
+        <li>打開 Garmin Connect App →「更多」→「設定」→「已連結的應用程式」→「Apple 健康」。</li>
+        <li>確認已連結，而且「活動能量／卡路里」有允許寫入。</li>
+        <li>打開 iPhone「健康」App →「瀏覽」→「活動」→「活動能量」，應該看得到今天的數字。<br/>
+          往下捲到「資料來源與取用」，記下 Garmin 的來源名稱（通常叫 <b>Connect</b>），第 4 步會用到。</li>
+      </ol>
+    </div>
+
+    <div class="card">
+      <h2><span class="step-no">4</span>建立捷徑「Chef同步」</h2>
+      <p class="muted">打開 iPhone「捷徑」App → 右上角「＋」→ 最上面把名稱改成 <b>Chef同步</b>（要一模一樣，App 裡的 🔄 按鈕會用這個名字）。然後依序加入以下動作（括號是英文介面的名稱）：</p>
+      <ol>
+        <li><span class="act"><b>尋找健康樣本</b>（Find Health Samples）</span>
+          類型選「<b>活動能量</b>」，然後設定：
+          <br/>・加入篩選「開始日期」「在最近」<b>15 天</b>
+          <br/>・再加入篩選「來源」「是」<b>Connect</b>（第 3 步看到的 Garmin 來源，避免和 iPhone 自己算的重複）
+          <br/>・「分組方式」選 <b>日</b>（Group By：Day）
+          <br/>・排序依「開始日期」</li>
+        <li><span class="act"><b>重複每一個項目</b>（Repeat with Each）</span>對象是上一步的「健康樣本」。</li>
+        <li>在「重複」裡面加入 <span class="act"><b>文字</b>（Text）</span>內容照這樣排（中間是半形等號 <kbd>=</kbd>，不要有空白）：
+          <br/><code>［重複項目的開始日期］=［重複項目的值］</code>
+          <br/>・插入變數「重複項目」→ 點它 → 選「開始日期」→ 日期格式選「自訂」，填 <kbd>yyyy-MM-dd</kbd>
+          <br/>・再插入一次「重複項目」→ 點它 → 選「值」（Value，只要數字）</li>
+        <li>在「結束重複」之後加入 <span class="act"><b>合併文字</b>（Combine Text）</span>對象是「重複結果」，合併方式選「<b>新行</b>」。</li>
+        <li>加入 <span class="act"><b>取得 URL 的內容</b>（Get Contents of URL）</span>
+          <br/>・URL：<code>https://apo-health.pohsienbrianli.workers.dev/sync</code>
+          <br/>・展開「顯示更多」→ 方法選 <b>POST</b>
+          <br/>・標頭：新增一個，鍵 <kbd>Authorization</kbd>，值 <kbd>Bearer 你的密碼</kbd>（Bearer 後面有一個空白）
+          <br/>・要求本文選「<b>檔案</b>」，檔案選上一步的「合併的文字」</li>
+        <li>（測試用）最後加一個 <span class="act"><b>顯示結果</b>（Show Result）</span>按右下角 ▶ 執行，看到類似 <code>{"ok":true,"received":15,...}</code> 就成功了。第一次執行會問能不能讀取健康資料，請允許。測試成功後可以把「顯示結果」刪掉。</li>
+      </ol>
+      <p class="note">回 App 首頁，大圓環下方會出現「⌚ 今日活動 … kcal」。第一次會一起送最近 15 天，所以馬上就能算出你的「平常活動量」。</p>
+    </div>
+
+    <div class="card">
+      <h2><span class="step-no">5</span>設定「每小時」自動同步</h2>
+      <p class="muted">iPhone 的自動化沒有「每小時重複」這個選項，所以用下面幾種觸發組合起來，效果就是每小時左右＋每次打開 App 前都會更新：</p>
+      <ol>
+        <li><b>每小時（時間觸發）</b>：「捷徑」→ 下方「自動化」→「＋」→「特定時間」→ 設 <b>07:00</b>、「每天」→ 選「<b>立即執行</b>」並關閉「執行時通知」→ 下一步選捷徑「Chef同步」。
+          <br/>重複建立 08:00、09:00 … 23:00（想省事可以改成每 2 小時一個：07、09、11、13、15、17、19、21、23）。</li>
+        <li><b>手錶同步完就更新</b>：「自動化」→「＋」→「App」→ 選「<b>Connect</b>」（Garmin Connect）、勾「<b>已關閉</b>」→「立即執行」→ 選「Chef同步」。</li>
+        <li><b>打開 App 前先更新</b>：同上，App 選「<b>Safari</b>」、勾「<b>已開啟</b>」→「立即執行」→ 選「Chef同步」。
+          <br/><span class="muted">（如果你是從主畫面圖示打開 App，就不需要這條；App 首頁的 🔄 按鈕可以隨時手動同步）</span></li>
+      </ol>
+      <p class="note">App 開著的時候也會每小時自動重新抓一次，從捷徑切回 App 時也會馬上更新。</p>
+    </div>
+
+    <div class="card">
+      <h2><span class="step-no">6</span>常見問題</h2>
+      <ol>
+        <li><b>App 顯示「密碼不對」</b>：捷徑標頭、App 設定、GitHub 的 <code>HEALTH_SYNC_TOKEN</code> 三個地方要是同一組。改了 GitHub 的密碼後要重跑一次「Deploy health worker」。</li>
+        <li><b>數字比 Garmin App 小</b>：Garmin 會定時把手錶資料同步到手機，再寫進 Apple 健康，所以可能晚一點。打開 Garmin Connect 同步一下，再按 App 的 🔄。</li>
+        <li><b>數字好像重複算了</b>：檢查第 4 步有沒有加「來源是 Connect」的篩選。</li>
+        <li><b>捷徑說「值」不是數字</b>：在「文字」裡點「重複項目」時要選「值」，不要選整個健康樣本。</li>
+      </ol>
+    </div>
+    <p style="text-align:center"><a class="back" href="./#settings">‹ 回到 App 設定</a></p>
+  </main>
+</body>
+</html>

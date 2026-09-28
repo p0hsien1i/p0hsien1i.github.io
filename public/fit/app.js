@@ -39,15 +39,18 @@ const MEALS = [['breakfast', '早餐'], ['lunch', '午餐'], ['dinner', '晚餐'
 const mealName = (m) => (MEALS.find((x) => x[0] === m) || MEALS[3])[1];
 const mealIcon = { breakfast: '🌅', lunch: '🍱', dinner: '🍲', snack: '🍪', drinks: '🧋' };
 const ACTIVITY = [[1.2, '久坐（幾乎不運動）'], [1.375, '輕度（每週 1–3 天）'], [1.55, '中度（每週 3–5 天）'], [1.725, '高度（每週 6–7 天）']];
-const WEEKLY = [[-1, '每週減 1 kg'], [-0.75, '每週減 0.75 kg'], [-0.5, '每週減 0.5 kg'], [-0.25, '每週減 0.25 kg'], [0, '維持體重'], [0.25, '每週增 0.25 kg'], [0.5, '每週增 0.5 kg']];
+const WEEKLY = [[-1, '每週減 1 kg（偏快）'], [-0.75, '每週減 0.75 kg'], [-0.5, '每週減 0.5 kg（減脂建議）'], [-0.25, '每週減 0.25 kg'], [0, '維持體重'], [0.25, '每週增 0.25 kg'], [0.5, '每週增 0.5 kg']];
 
 const defaults = () => ({
   profile: {
     sex: 'male', age: 30, height: 170, weight: 70, activity: 1.375, weeklyGoal: -0.5,
     calorieOverride: 0, macros: { c: 45, p: 25, f: 30 }, autoAdjust: true,
+    // 目標模式：'abs' 減脂・腹肌（蛋白質以每公斤計）／'general' 一般（三大營養素比例）
+    mode: 'abs', proteinPerKg: 2.0, fatPct: 25, drinkLimit: 150,
   },
   entries: [], // { id, date, meal, food, amount, qty }
   weights: {}, // { 'YYYY-MM-DD': kg }
+  waists: {}, // { 'YYYY-MM-DD': 腰圍 cm（肚臍高度）}
   customFoods: [],
   recents: [],
   // Apple 健康同步（iPhone 捷徑 → apo-health worker → 這裡）
@@ -170,9 +173,38 @@ function dayBudget(date = cur) {
   return calorieGoal() + (a?.bonus || 0);
 }
 
+const absMode = () => S.profile.mode === 'abs';
 function macroGoals(kcal) {
-  const m = S.profile.macros;
+  const pr = S.profile;
+  if (absMode()) {
+    // 減脂期：蛋白質依體重（保住肌肉）、脂肪固定比例，剩下的給碳水
+    const p = pr.proteinPerKg * latestWeight();
+    const f = (kcal * pr.fatPct) / 900;
+    return { p, f, c: Math.max(0, (kcal - p * 4 - f * 9) / 4) };
+  }
+  const m = pr.macros;
   return { c: (kcal * m.c) / 400, p: (kcal * m.p) / 400, f: (kcal * m.f) / 900 };
+}
+
+// ---------- 腰圍／腹肌進度 ----------
+const latestWaist = (upTo = today()) => {
+  const ds = Object.keys(S.waists || {}).filter((d) => d <= upTo).sort();
+  return ds.length ? { date: ds.at(-1), cm: S.waists[ds.at(-1)] } : null;
+};
+// 相對脂肪量 RFM（只需身高與腰圍的體脂粗估）：男 64 − 20×身高/腰圍，女 76 − 20×身高/腰圍
+const rfm = (waist) => (S.profile.sex === 'male' ? 64 : 76) - (20 * S.profile.height) / waist;
+const WHTR_TARGET = 0.45; // 腰圍／身高 ≤ 0.45：精實，腹肌線條開始出現的參考值
+// 近 3 週體重趨勢（kg／週，線性回歸）
+function weightTrend(days = 21) {
+  const start = addDays(today(), -days);
+  const pts = Object.entries(S.weights).filter(([d]) => d >= start).map(([d, kg]) => [dayDiff(start, d), kg]);
+  if (pts.length < 3) return null;
+  const span = Math.max(...pts.map((p) => p[0])) - Math.min(...pts.map((p) => p[0]));
+  if (span < 7) return null;
+  const mx = pts.reduce((a, p) => a + p[0], 0) / pts.length;
+  const my = pts.reduce((a, p) => a + p[1], 0) / pts.length;
+  const slope = pts.reduce((a, p) => a + (p[0] - mx) * (p[1] - my), 0) / pts.reduce((a, p) => a + (p[0] - mx) ** 2, 0);
+  return { perWeek: slope * 7, pct: (slope * 7) / my * 100 };
 }
 const nut = (e) => ({ kcal: e.food.kcal * e.qty, p: e.food.p * e.qty, c: e.food.c * e.qty, f: e.food.f * e.qty });
 function foodTotals(date, meal) {
@@ -253,6 +285,27 @@ function healthLine(a) {
     <a class="icon-btn" href="shortcuts://run-shortcut?name=${encodeURIComponent(HEALTH_SHORTCUT)}" aria-label="執行捷徑立即同步" title="立即同步">🔄</a></div>`;
 }
 
+function absFocusCard(t, remain, mg) {
+  const drinks = foodTotals(cur, 'drinks').kcal;
+  const lim = S.profile.drinkLimit;
+  const pLeft = mg.p - t.p;
+  const w = latestWaist();
+  const item = (ok, title, detail) => `<li class="${ok === true ? 'done' : ok === false ? 'bad' : ''}">
+    <span class="mark">${ok === true ? '✓' : ok === false ? '!' : '○'}</span><div><b>${title}</b><small>${detail}</small></div></li>`;
+  const target = r1(S.profile.height * WHTR_TARGET);
+  return `<div class="card focus">
+    <div class="card-head"><h3>🔥 今日減脂重點</h3><button class="link-btn" data-action="goto" data-view="progress">腹肌進度 ›</button></div>
+    <ul class="focus-list">
+      ${item(remain >= 0, '熱量在額度內', remain >= 0 ? `還有 ${remain} kcal` : `超過 ${-remain} kcal，明天回到額度就好`)}
+      ${item(pLeft <= 0.5 ? true : null, `蛋白質 ${r0(mg.p)} g（每公斤 ${S.profile.proteinPerKg} g）`, pLeft > 0.5 ? `還要補 ${r0(pLeft)} g：雞胸、蛋、豆腐、無糖豆漿、乳清` : '達標！減脂時最重要的就是這一項')}
+      ${item(drinks <= lim, `飲料熱量 ≤ ${lim} kcal`, drinks ? `今天喝了 ${r0(drinks)} kcal${drinks > lim ? '，手搖飲改無糖、少喝酒' : ''}` : '目前 0，無糖茶、黑咖啡、水最好')}
+    </ul>
+    <p class="muted waist-line">${w
+      ? `📏 腰圍 <b>${w.cm}</b> cm（${short(w.date)}）· 目標 ≤ <b>${target}</b> cm${w.date < addDays(today(), -7) ? ' · 該量這週的腰圍了' : ''}`
+      : '📏 每週量一次腰圍（肚臍高度），比體重更能看出小腹的變化 → <a href="#progress" data-action="goto" data-view="progress">去記錄</a>'}</p>
+  </div>`;
+}
+
 function renderHome() {
   const act = activityInfo(cur);
   const base = calorieGoal();
@@ -289,6 +342,8 @@ function renderHome() {
       ${healthLine(act)}
     </div>
 
+    ${absMode() ? absFocusCard(t, remain, mg) : ''}
+
     <div class="card">
       <div class="card-head"><h3>營養素還差多少</h3></div>
       ${macroRow('蛋白質', t.p, mg.p, 'var(--protein)', 'min')}
@@ -306,7 +361,7 @@ function renderHome() {
 
     <div class="quick">
       <button class="btn primary" data-action="add-food">🍙 記錄飲食</button>
-      <button class="btn" data-action="goto" data-view="progress">⚖️ 記錄體重</button>
+      <button class="btn" data-action="goto" data-view="progress">📏 體重・腰圍</button>
     </div>
 
     <div class="card">
@@ -392,13 +447,18 @@ function renderProgress() {
 
   $('#view-progress').innerHTML = `
     <div class="card">
-      <div class="card-head"><h3>記錄體重</h3></div>
-      <form id="weight-form" class="grid2" style="align-items:end">
+      <div class="card-head"><h3>記錄體重・腰圍</h3></div>
+      <form id="weight-form">
         <label>日期<input type="date" name="date" value="${cur}" max="${today()}" required /></label>
-        <label>體重 kg<input type="number" name="kg" inputmode="decimal" step="0.1" min="20" max="400" value="${S.weights[cur] ?? ''}" placeholder="${r1(w)}" required /></label>
-        <div></div><div class="btn-row" style="margin-top:8px"><button class="btn primary">儲存</button></div>
+        <div class="grid2">
+          <label>體重 kg<input type="number" name="kg" inputmode="decimal" step="0.1" min="20" max="400" value="${S.weights[cur] ?? ''}" placeholder="${r1(w)}" /></label>
+          <label>腰圍 cm（選填）<input type="number" name="waist" inputmode="decimal" step="0.1" min="40" max="200" value="${S.waists[cur] ?? ''}" placeholder="${latestWaist()?.cm ?? '肚臍高度'}" /></label>
+        </div>
+        <p class="muted" style="margin-top:8px">建議早上起床、上完廁所、吃東西前量。腰圍：皮尺繞過肚臍、保持水平，自然吐氣後量，不要縮小腹。</p>
+        <div class="btn-row"><button class="btn primary">儲存</button></div>
       </form>
     </div>
+    ${absProgressCard()}
     <div class="card chart">
       <div class="card-head"><h3>體重變化</h3><span class="muted">近 90 天</span></div>
       ${weightChart(ws.filter(([d]) => d >= addDays(today(), -90)))}
@@ -421,6 +481,48 @@ function renderProgress() {
       ${ws.slice(-10).reverse().map(([d, kg]) => `<div class="row"><div class="grow"><div class="name">${dateLabel(d)}</div></div>
         <div class="kcal num">${kg} kg</div><button class="icon-btn" data-action="del-weight" data-date="${d}" aria-label="刪除">✕</button></div>`).join('')}
     </div></div>` : ''}`;
+}
+
+function absProgressCard() {
+  const ws = Object.entries(S.waists || {}).sort(([a], [b]) => a.localeCompare(b));
+  const h = S.profile.height;
+  const target = r1(h * WHTR_TARGET);
+  const trend = weightTrend();
+  let rate = '';
+  if (trend) {
+    const pct = -trend.pct;
+    rate = pct > 1.1 ? `⚠️ 最近每週減 ${r1(-trend.perWeek)} kg（體重的 ${r1(pct)}%），掉太快容易流失肌肉，腹肌反而出不來，可以每天多吃 100–200 kcal。`
+      : pct >= 0.4 ? `✅ 最近每週減 ${r1(-trend.perWeek)} kg（體重的 ${r1(pct)}%），速度剛好，繼續保持。`
+      : pct > 0 ? `最近每週減 ${r1(-trend.perWeek)} kg，速度偏慢。先確認記錄有沒有漏掉，特別是飲料和醬料。`
+      : `最近 3 週體重沒有下降（${trend.perWeek > 0 ? '+' : ''}${r1(trend.perWeek)} kg／週）。先確認記錄是否完整，再考慮把目標調低 100–200 kcal。`;
+  }
+  if (!ws.length) {
+    return `<div class="card">
+      <div class="card-head"><h3>🎯 腹肌進度</h3></div>
+      <p class="muted">小腹的脂肪沒辦法只減局部，會跟著全身體脂一起下降。<b>腰圍</b>是最直接的指標：每週量一次，記在上面的表單。</p>
+      <p class="note">你的目標腰圍：<b>≤ ${target} cm</b>（身高 ${h} cm × 0.45）。腰圍／身高降到 0.45 左右，通常腹肌線條就會開始出現。</p>
+      ${rate ? `<p class="note">${rate}</p>` : ''}
+    </div>`;
+  }
+  const first = ws[0][1];
+  const [lastDate, now] = ws.at(-1);
+  const whtr = now / h;
+  const bf = rfm(now);
+  const pct = first > target ? Math.min(100, Math.max(0, ((first - now) / (first - target)) * 100)) : 100;
+  const status = whtr <= WHTR_TARGET ? '已達精實範圍，腹肌線條應該開始看得到了 💪' : whtr <= 0.5 ? '健康範圍，再往下就會開始看到線條' : '先降到 0.5 以下（健康範圍）';
+  return `<div class="card chart">
+    <div class="card-head"><h3>🎯 腹肌進度</h3><span class="muted">${short(lastDate)} 量</span></div>
+    <div class="stats num" style="margin-top:0">
+      <div><b>${now}</b><small>腰圍 cm</small></div>
+      <div><b>${now - first > 0 ? '+' : ''}${r1(now - first)}</b><small>累計 cm</small></div>
+      <div><b>${r1(Math.max(0, now - target))}</b><small>距離目標 cm</small></div>
+    </div>
+    <div class="goal-bar"><i style="width:${pct}%"></i></div>
+    <p class="muted num" style="margin-top:4px">起點 ${first} cm → 目標 ≤ ${target} cm · 已完成 ${r0(pct)}%</p>
+    ${ws.length >= 2 ? weightChart(ws.slice(-30), 'cm') : ''}
+    <p class="note num">腰圍／身高 <b>${whtr.toFixed(2)}</b>：${status}<br/>粗估體脂 <b>${r0(bf)}%</b>（依身高與腰圍推算，只看趨勢就好）
+      ${rate ? `<br/>${rate}` : ''}</p>
+  </div>`;
 }
 
 function adaptiveCard() {
@@ -456,7 +558,7 @@ function adaptiveCard() {
   </div>`;
 }
 
-function weightChart(points) {
+function weightChart(points, unit = 'kg') {
   if (points.length < 2) return '<p class="empty">記錄兩天以上的體重就會出現趨勢圖。</p>';
   const W = 320, H = 150, L = 30, R = 8, T = 10, B = 20;
   const t0 = parseYmd(points[0][0]).getTime(), t1 = parseYmd(points.at(-1)[0]).getTime();
@@ -469,7 +571,7 @@ function weightChart(points) {
   return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="體重趨勢圖">
     ${ticks.map((v) => `<line class="grid" x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}"/><text x="${L - 4}" y="${y(v) + 3}" text-anchor="end">${r1(v)}</text>`).join('')}
     <polyline class="line" points="${points.map(([d, v]) => `${x(d)},${y(v)}`).join(' ')}"/>
-    ${points.map(([d, v]) => `<circle class="dot" cx="${x(d)}" cy="${y(v)}" r="2.5"><title>${short(d)}：${v} kg</title></circle>`).join('')}
+    ${points.map(([d, v]) => `<circle class="dot" cx="${x(d)}" cy="${y(v)}" r="2.5"><title>${short(d)}：${v} ${unit}</title></circle>`).join('')}
     <text x="${L}" y="${H - 4}">${short(points[0][0])}</text>
     <text x="${W - R}" y="${H - 4}" text-anchor="end">${short(points.at(-1)[0])}</text>
   </svg>`;
@@ -495,8 +597,18 @@ function renderSettings() {
         ${adaptive(today()).ready ? `<br/>依你的紀錄推算實際消耗 ≈ <b>${r0(adaptive(today()).est)}</b> kcal` : '<br/>實際消耗：資料累積中（詳見「進度」頁）'}
         <br/>${p.autoAdjust && adaptive(today()).ready ? '已自動修正的' : ''}建議每日攝取：<b>${auto}</b> kcal</p>
       <label>自訂每日熱量目標（0 = 使用建議值）<input name="calorieOverride" type="number" inputmode="numeric" min="0" step="10" value="${p.calorieOverride || 0}" /></label>
-      <p class="muted" style="margin-top:12px"><b>三大營養素比例（%）</b></p>
-      <div class="grid3">
+      <label>目標模式<select name="mode">
+        <option value="abs" ${p.mode === 'abs' ? 'selected' : ''}>🔥 減脂・腹肌（蛋白質依體重計算）</option>
+        <option value="general" ${p.mode !== 'abs' ? 'selected' : ''}>一般（三大營養素比例）</option>
+      </select></label>
+      <div class="grid3" ${p.mode === 'abs' ? '' : 'hidden'} data-mode="abs">
+        <label>蛋白質 g／kg<input name="ppk" type="number" inputmode="decimal" step="0.1" min="1.2" max="3" value="${p.proteinPerKg}" /></label>
+        <label>脂肪 %<input name="fpct" type="number" inputmode="numeric" min="15" max="40" value="${p.fatPct}" /></label>
+        <label>飲料上限 kcal<input name="dlim" type="number" inputmode="numeric" min="0" step="10" value="${p.drinkLimit}" /></label>
+      </div>
+      <p class="muted" ${p.mode === 'abs' ? '' : 'hidden'} data-mode="abs" style="margin-top:6px">減脂期建議蛋白質每公斤 1.8–2.2 g、每週減體重的 0.5–1%，並搭配重量訓練保住肌肉。碳水＝剩下的熱量。</p>
+      <p class="muted" style="margin-top:12px" ${p.mode === 'abs' ? 'hidden' : ''} data-mode="general"><b>三大營養素比例（%）</b></p>
+      <div class="grid3" ${p.mode === 'abs' ? 'hidden' : ''} data-mode="general">
         <label>碳水<input name="mc" type="number" inputmode="numeric" min="0" max="100" value="${p.macros.c}" /></label>
         <label>蛋白質<input name="mp" type="number" inputmode="numeric" min="0" max="100" value="${p.macros.p}" /></label>
         <label>脂肪<input name="mf" type="number" inputmode="numeric" min="0" max="100" value="${p.macros.f}" /></label>
@@ -536,18 +648,20 @@ function renderSettings() {
         <button class="btn ghost danger" data-action="reset">清除全部資料</button>
       </div>
     </div>
-    <p class="muted" style="text-align:center">飯糰 Fit · 食物營養資料：內建常見台灣食物估算值 ＋ <a href="https://world.openfoodfacts.org" target="_blank" rel="noopener">Open Food Facts</a></p>`;
+    <p class="muted" style="text-align:center">Brian as the Chef · 食物營養資料：內建常見台灣食物估算值 ＋ <a href="https://world.openfoodfacts.org" target="_blank" rel="noopener">Open Food Facts</a></p>`;
 
   $('#profile-form').addEventListener('submit', (e) => {
     e.preventDefault();
     const fd = new FormData(e.target);
     const mc = num(fd.get('mc')), mp = num(fd.get('mp')), mf = num(fd.get('mf'));
-    if (Math.round(mc + mp + mf) !== 100) { toast(`營養素比例加總要是 100%（目前 ${mc + mp + mf}%）`); return; }
+    const mode = fd.get('mode');
+    if (mode !== 'abs' && Math.round(mc + mp + mf) !== 100) { toast(`營養素比例加總要是 100%（目前 ${mc + mp + mf}%）`); return; }
     const newW = num(fd.get('weight'));
     Object.assign(S.profile, {
       sex: fd.get('sex'), age: num(fd.get('age')), height: num(fd.get('height')),
       activity: num(fd.get('activity')), weeklyGoal: num(fd.get('weeklyGoal')),
       calorieOverride: num(fd.get('calorieOverride')), macros: { c: mc, p: mp, f: mf }, autoAdjust: !!fd.get('autoAdjust'),
+      mode, proteinPerKg: num(fd.get('ppk')) || 2, fatPct: num(fd.get('fpct')) || 25, drinkLimit: num(fd.get('dlim')),
     });
     if (newW && r1(newW) !== r1(latestWeight(today()))) {
       if (Object.keys(S.weights).length) S.weights[today()] = r1(newW);
@@ -556,6 +670,9 @@ function renderSettings() {
     save();
     renderSettings();
     toast('已儲存');
+  });
+  $('#profile-form [name=mode]').addEventListener('change', (e) => {
+    for (const el of document.querySelectorAll('#profile-form [data-mode]')) el.hidden = el.dataset.mode !== e.target.value;
   });
   $('#health-form').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -1146,11 +1263,16 @@ document.addEventListener('submit', (e) => {
   e.preventDefault();
   const fd = new FormData(e.target);
   const kg = num(fd.get('kg'));
-  if (kg < 20) { toast('請輸入正確的體重'); return; }
-  S.weights[fd.get('date')] = r1(kg);
+  const waist = num(fd.get('waist'));
+  if (!kg && !waist) { toast('請輸入體重或腰圍'); return; }
+  if (kg && kg < 20) { toast('請輸入正確的體重'); return; }
+  if (waist && waist < 40) { toast('請輸入正確的腰圍（cm）'); return; }
+  const date = fd.get('date');
+  if (kg) S.weights[date] = r1(kg);
+  if (waist) (S.waists ||= {})[date] = r1(waist);
   save();
   render();
-  toast('體重已記錄');
+  toast([kg && '體重', waist && '腰圍'].filter(Boolean).join('、') + '已記錄');
 });
 
 // ================= Apple 健康同步 =================

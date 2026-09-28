@@ -28,19 +28,30 @@ export const FOODS = [
   F('鯛魚片', '100 g', 96, 20, 0, 1.7, 'fish 魚'),
   F('鮪魚罐頭（水煮）', '1 罐 (瀝乾 100g)', 116, 26, 0, 1, 'tuna'),
   F('板豆腐', '100 g', 88, 8.5, 3, 4.5, 'tofu'),
-  F('無糖豆漿', '1 杯 (400ml)', 140, 14, 6, 7, 'soy milk'),
+  F('無糖豆漿', '1 杯 (400ml)', 140, 14, 6, 7, 'soy milk drink'),
   F('乳清蛋白', '1 匙 (30g)', 120, 24, 3, 1.5, 'whey protein 高蛋白'),
   F('無糖希臘優格', '100 g', 73, 10, 4, 2, 'yogurt'),
   // 乳品 / 飲料
-  F('全脂鮮奶', '1 杯 (240ml)', 150, 7.7, 11.5, 8, 'milk 牛奶'),
-  F('低脂鮮奶', '1 杯 (240ml)', 110, 8, 12, 3, 'milk 牛奶'),
-  F('美式咖啡', '1 杯', 10, 0.5, 1, 0, 'coffee'),
-  F('拿鐵', '1 杯 (中杯)', 190, 10, 15, 10, 'latte coffee 咖啡'),
-  F('珍珠奶茶（全糖）', '1 杯 (700ml)', 650, 3, 118, 18, 'boba bubble tea 手搖'),
-  F('珍珠奶茶（微糖）', '1 杯 (700ml)', 450, 3, 75, 15, 'boba bubble tea 手搖'),
-  F('無糖綠茶', '1 杯', 0, 0, 0, 0, 'tea 茶'),
-  F('可樂', '1 罐 (330ml)', 139, 0, 35, 0, 'cola soda 汽水'),
-  F('啤酒', '1 罐 (330ml)', 142, 1.5, 12, 0, 'beer 酒'),
+  F('全脂鮮奶', '1 杯 (240ml)', 150, 7.7, 11.5, 8, 'milk 牛奶 drink'),
+  F('低脂鮮奶', '1 杯 (240ml)', 110, 8, 12, 3, 'milk 牛奶 drink'),
+  F('美式咖啡', '1 杯', 10, 0.5, 1, 0, 'coffee drink'),
+  F('拿鐵', '1 杯 (中杯)', 190, 10, 15, 10, 'latte coffee 咖啡 drink'),
+  F('珍珠奶茶（全糖）', '1 杯 (700ml)', 650, 3, 118, 18, 'boba bubble tea 手搖 drink'),
+  F('珍珠奶茶（微糖）', '1 杯 (700ml)', 450, 3, 75, 15, 'boba bubble tea 手搖 drink'),
+  F('無糖綠茶', '1 杯', 0, 0, 0, 0, 'tea 茶 drink'),
+  F('可樂', '1 罐 (330ml)', 139, 0, 35, 0, 'cola soda 汽水 drink'),
+  F('啤酒', '1 罐 (330ml)', 142, 1.5, 12, 0, 'beer 酒 drink'),
+  F('無糖紅茶 / 烏龍茶', '1 杯', 0, 0, 0, 0, 'tea 茶 drink'),
+  F('氣泡水', '1 瓶', 0, 0, 0, 0, 'sparkling water drink'),
+  F('含糖豆漿', '1 杯 (400ml)', 240, 13, 30, 7, 'soy milk drink'),
+  F('燕麥奶', '1 杯 (250ml)', 120, 1, 16, 5, 'oat milk drink'),
+  F('柳橙汁', '1 杯 (250ml)', 110, 1.7, 26, 0.5, 'orange juice 果汁 drink'),
+  F('運動飲料', '1 瓶 (600ml)', 150, 0, 37, 0, 'sports drink 寶礦力 舒跑'),
+  F('養樂多', '1 瓶 (100ml)', 70, 1, 16, 0, 'yakult drink'),
+  F('超商奶茶', '1 瓶 (400ml)', 250, 5, 38, 9, 'milk tea drink'),
+  F('卡布奇諾', '1 杯 (中杯)', 130, 7, 10, 7, 'cappuccino coffee 咖啡 drink'),
+  F('紅酒', '1 杯 (150ml)', 125, 0.1, 4, 0, 'wine 酒 drink'),
+  F('Highball / 調酒', '1 杯 (350ml)', 150, 0, 10, 0, 'highball cocktail 酒 drink'),
   // 蔬果
   F('燙青菜', '1 盤 (淋醬)', 60, 2, 5, 3.5, 'vegetable 蔬菜'),
   F('花椰菜', '100 g', 34, 2.8, 7, 0.4, 'broccoli 蔬菜'),
@@ -79,4 +90,35 @@ export const FOODS = [
   F('薯條（中）', '1 份', 340, 4, 44, 16, 'fries'),
   F('披薩', '1 片', 285, 12, 36, 10, 'pizza'),
   F('麻辣燙 / 滷味', '1 份', 500, 25, 40, 25, 'hot pot'),
+];
+
+// ---------- 手搖飲計算機（以大杯 700ml、不加糖為基準的估算值；中杯依容量比例換算） ----------
+export const DRINK_BASES = [
+  { id: 'tea', name: '純茶（紅／綠／烏龍／青茶）', kcal: 0, p: 0, c: 0, f: 0 },
+  { id: 'milktea', name: '奶茶（奶精）', kcal: 190, p: 1, c: 22, f: 11 },
+  { id: 'freshmilktea', name: '鮮奶茶／歐蕾', kcal: 180, p: 8, c: 13, f: 9 },
+  { id: 'latte', name: '鮮奶（厚奶）', kcal: 260, p: 13, c: 20, f: 14 },
+  { id: 'yakult', name: '多多綠／養樂多系列', kcal: 140, p: 2, c: 32, f: 0 },
+  { id: 'lemon', name: '檸檬／金桔綠', kcal: 40, p: 0, c: 10, f: 0 },
+  { id: 'fruit', name: '水果茶', kcal: 120, p: 1, c: 29, f: 0 },
+  { id: 'coffee', name: '美式咖啡', kcal: 10, p: 1, c: 1, f: 0 },
+];
+export const DRINK_SIZES = [
+  { id: 'M', name: '中杯', ml: 500 },
+  { id: 'L', name: '大杯', ml: 700 },
+];
+// 全糖大杯約 55 g 糖（≈ 220 kcal）
+export const DRINK_SUGARS = [
+  { id: 100, name: '全糖' }, { id: 70, name: '少糖' }, { id: 50, name: '半糖' },
+  { id: 30, name: '微糖' }, { id: 10, name: '一分糖' }, { id: 0, name: '無糖' },
+];
+export const FULL_SUGAR_G_700 = 55;
+export const DRINK_TOPPINGS = [
+  { id: 'boba', name: '珍珠', kcal: 160, p: 0, c: 40, f: 0 },
+  { id: 'coconut', name: '椰果', kcal: 70, p: 0, c: 17, f: 0 },
+  { id: 'pudding', name: '布丁', kcal: 110, p: 3, c: 16, f: 4 },
+  { id: 'grassjelly', name: '仙草', kcal: 30, p: 0, c: 7, f: 0 },
+  { id: 'taro', name: '芋圓', kcal: 150, p: 1, c: 35, f: 0.5 },
+  { id: 'foam', name: '奶蓋', kcal: 130, p: 2, c: 8, f: 10 },
+  { id: 'aiyu', name: '愛玉', kcal: 20, p: 0, c: 5, f: 0 },
 ];

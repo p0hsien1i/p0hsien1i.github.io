@@ -1,4 +1,4 @@
-import { FOODS } from './foods.js';
+import { FOODS, DRINK_BASES, DRINK_SIZES, DRINK_SUGARS, DRINK_TOPPINGS, FULL_SUGAR_G_700 } from './foods.js';
 
 // ================= utils =================
 const $ = (s, el = document) => el.querySelector(s);
@@ -35,8 +35,9 @@ function toast(msg) {
 
 // ================= state =================
 const KEY = 'fanfit:v1';
-const MEALS = [['breakfast', '早餐'], ['lunch', '午餐'], ['dinner', '晚餐'], ['snack', '點心']];
+const MEALS = [['breakfast', '早餐'], ['lunch', '午餐'], ['dinner', '晚餐'], ['snack', '點心'], ['drinks', '飲料']];
 const mealName = (m) => (MEALS.find((x) => x[0] === m) || MEALS[3])[1];
+const mealIcon = { breakfast: '🌅', lunch: '🍱', dinner: '🍲', snack: '🍪', drinks: '🧋' };
 const ACTIVITY = [[1.2, '久坐（幾乎不運動）'], [1.375, '輕度（每週 1–3 天）'], [1.55, '中度（每週 3–5 天）'], [1.725, '高度（每週 6–7 天）']];
 const WEEKLY = [[-1, '每週減 1 kg'], [-0.75, '每週減 0.75 kg'], [-0.5, '每週減 0.5 kg'], [-0.25, '每週減 0.25 kg'], [0, '維持體重'], [0.25, '每週增 0.25 kg'], [0.5, '每週增 0.5 kg']];
 
@@ -110,10 +111,43 @@ function render() {
   ({ home: renderHome, diary: renderDiary, progress: renderProgress, settings: renderSettings })[view]();
 }
 
-function macroMeter(label, val, goal, color) {
+// 營養素「還差多少」：蛋白質是要補足的目標，碳水／脂肪是上限
+function macroRow(label, val, goal, color, kind) {
+  const left = goal - val;
   const pct = goal ? Math.min(100, (val / goal) * 100) : 0;
-  return `<div class="macro"><small>${label}</small><b class="num">${r0(val)}</b><small class="num" style="display:inline"> / ${r0(goal)} g</small>
-    <div class="meter"><i style="width:${pct}%;background:${color}"></i></div></div>`;
+  let status, cls = '';
+  if (kind === 'min') {
+    status = left > 0.5 ? `還要補 <b>${r0(left)}</b> g` : '✓ 已達標';
+    cls = left > 0.5 ? 'need' : 'ok';
+  } else {
+    status = left >= 0 ? `還可以吃 <b>${r0(left)}</b> g` : `超過 <b>${r0(-left)}</b> g`;
+    cls = left >= 0 ? '' : 'over';
+  }
+  return `<div class="mrow ${cls}">
+    <div class="mrow-head"><span class="mrow-label"><i style="background:${color}"></i>${label}</span><span class="mrow-status">${status}</span></div>
+    <div class="meter"><i style="width:${pct}%;background:${color}"></i></div>
+    <small class="muted num">已吃 ${r0(val)} / 目標 ${r0(goal)} g</small>
+  </div>`;
+}
+
+// 把剩下的熱量／蛋白質，依比例分給今天還沒記錄的正餐
+const MEAL_SHARE = { breakfast: 25, lunch: 35, dinner: 35, snack: 10 };
+const MEAL_END_HOUR = { breakfast: 11, lunch: 15, dinner: 22, snack: 24 };
+function mealPlan(remainKcal, remainP) {
+  const isToday = cur === today();
+  const hour = new Date().getHours();
+  const open = Object.keys(MEAL_SHARE).filter((k) =>
+    !S.entries.some((e) => e.date === cur && e.meal === k) && (!isToday || hour < MEAL_END_HOUR[k]));
+  const total = open.reduce((s, k) => s + MEAL_SHARE[k], 0);
+  return open.map((k) => ({ meal: k, kcal: (remainKcal * MEAL_SHARE[k]) / total, p: (Math.max(0, remainP) * MEAL_SHARE[k]) / total }));
+}
+
+function coachLine(eaten, remain, goal, pLeft) {
+  if (!eaten) return '今天還沒記錄，從第一餐開始吧！';
+  if (remain < 0) return `今天多了 ${-remain} kcal，沒關係，明天再調整就好 🙂`;
+  if (remain <= goal * 0.1) return pLeft > 5 ? `快到目標了！剩下的額度優先補蛋白質（還差 ${r0(pLeft)} g）。` : '快到目標了，接下來選清淡一點的就好 👍';
+  if (pLeft > 5) return `還有 ${remain} kcal 的空間，蛋白質還要補 ${r0(pLeft)} g 💪`;
+  return `還有 ${remain} kcal 的空間，蛋白質已經達標 👍`;
 }
 
 function renderHome() {
@@ -122,33 +156,47 @@ function renderHome() {
   const eaten = r0(t.kcal);
   const remain = goal - eaten;
   const mg = macroGoals(goal);
-  const C = 2 * Math.PI * 54;
+  const pLeft = mg.p - t.p;
+  const R = 70, C = 2 * Math.PI * R;
   const pct = goal > 0 ? Math.min(1, eaten / goal) : 0;
+  const plan = remain > 0 ? mealPlan(remain, pLeft) : [];
 
   $('#view-home').innerHTML = `
-    <div class="card">
-      <div class="summary">
-        <div class="ring ${remain < 0 ? 'over' : ''}">
-          <svg viewBox="0 0 120 120" aria-hidden="true">
-            <circle class="track" cx="60" cy="60" r="54" fill="none" stroke-width="10"/>
-            <circle class="bar" cx="60" cy="60" r="54" fill="none" stroke-width="10" stroke-linecap="round"
-              stroke-dasharray="${C}" stroke-dashoffset="${C * (1 - pct)}"/>
-          </svg>
-          <div class="ring-label"><span>已攝取</span><b class="num">${eaten}</b><span class="num">/ ${goal} kcal</span></div>
-        </div>
-        <div class="equation num">
-          <div><span>每日目標</span><span>${goal}</span></div>
-          <div><span>已攝取</span><span>${eaten}</span></div>
-          <div class="total"><span>${remain < 0 ? '超過' : '還可以吃'}</span><span style="color:${remain < 0 ? 'var(--accent-text)' : 'var(--good)'}">${Math.abs(remain)}</span></div>
-          <div><span class="muted">達成</span><span class="muted">${goal ? r0((eaten / goal) * 100) : 0}%</span></div>
+    <div class="card hero">
+      <div class="hero-ring ${remain < 0 ? 'over' : ''}">
+        <svg viewBox="0 0 160 160" aria-hidden="true">
+          <circle class="track" cx="80" cy="80" r="${R}" fill="none" stroke-width="12"/>
+          <circle class="bar" cx="80" cy="80" r="${R}" fill="none" stroke-width="12" stroke-linecap="round"
+            stroke-dasharray="${C}" stroke-dashoffset="${C * (1 - pct)}"/>
+        </svg>
+        <div class="ring-label">
+          <span>${remain < 0 ? '已超過' : '還可以吃'}</span>
+          <b class="num">${Math.abs(remain).toLocaleString()}</b>
+          <span>kcal</span>
         </div>
       </div>
-      <div class="macros">
-        ${macroMeter('碳水', t.c, mg.c, 'var(--carb)')}
-        ${macroMeter('蛋白質', t.p, mg.p, 'var(--protein)')}
-        ${macroMeter('脂肪', t.f, mg.f, 'var(--fat)')}
+      <div class="hero-stats num">
+        <div><small>目標</small><b>${goal.toLocaleString()}</b></div>
+        <div><small>已吃</small><b>${eaten.toLocaleString()}</b></div>
+        <div><small>進度</small><b>${goal ? r0((eaten / goal) * 100) : 0}%</b></div>
       </div>
+      <p class="coach">${esc(coachLine(eaten, remain, goal, pLeft))}</p>
     </div>
+
+    <div class="card">
+      <div class="card-head"><h3>營養素還差多少</h3></div>
+      ${macroRow('蛋白質', t.p, mg.p, 'var(--protein)', 'min')}
+      ${macroRow('碳水', t.c, mg.c, 'var(--carb)', 'max')}
+      ${macroRow('脂肪', t.f, mg.f, 'var(--fat)', 'max')}
+    </div>
+
+    ${plan.length ? `<div class="card">
+      <div class="card-head"><h3>接下來怎麼吃</h3><span class="muted">剩下的額度分配</span></div>
+      <div class="list">${plan.map((x) => `<button class="row" data-action="add-food" data-meal="${x.meal}">
+        <div class="grow"><div class="name">${mealIcon[x.meal]} ${mealName(x.meal)}</div>
+        <div class="sub">${x.p >= 1 ? `蛋白質約 ${r0(x.p)} g` : '蛋白質已達標'}</div></div>
+        <div class="kcal num">約 ${r0(x.kcal / 10) * 10} kcal</div></button>`).join('')}</div>
+    </div>` : ''}
 
     <div class="quick">
       <button class="btn primary" data-action="add-food">🍙 記錄飲食</button>
@@ -162,7 +210,7 @@ function renderHome() {
           const mt = foodTotals(cur, k);
           const cnt = S.entries.filter((e) => e.date === cur && e.meal === k).length;
           return `<button class="row" data-action="add-food" data-meal="${k}">
-            <div class="grow"><div class="name">${n}</div><div class="sub">${cnt ? `${cnt} 項` : '尚未記錄 — 點此新增'}</div></div>
+            <div class="grow"><div class="name">${mealIcon[k]} ${n}</div><div class="sub">${cnt ? `${cnt} 項` : '尚未記錄 — 點此新增'}</div></div>
             <div class="kcal num">${cnt ? r0(mt.kcal) + ' kcal' : '＋'}</div></button>`;
         }).join('')}
       </div>
@@ -178,7 +226,7 @@ function weekChart() {
   const days = Array.from({ length: 7 }, (_, i) => addDays(cur, i - 6));
   const vals = days.map((d) => foodTotals(d).kcal);
   const goal = calorieGoal();
-  const max = Math.max(goal * 1.25, ...vals) || 1;
+  const max = Math.max(goal * 1.25, ...vals.map((v) => v * 1.12)) || 1;
   const W = 320, H = 150, top = 16, bottom = 20, h = H - top - bottom, bw = 26, gap = (W - 7 * bw) / 7;
   const y = (v) => top + h - (v / max) * h;
   return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="近 7 天熱量攝取長條圖">
@@ -200,16 +248,16 @@ function renderDiary() {
   $('#view-diary').innerHTML = `
     <div class="card">
       <div class="grid3 num" style="text-align:center">
+        <div><small class="muted">${goal - t.kcal < 0 ? '已超過' : '還可以吃'}</small><div><b class="big" style="color:${goal - t.kcal < 0 ? 'var(--accent-text)' : 'var(--good)'}">${Math.abs(r0(goal - t.kcal))}</b></div></div>
+        <div><small class="muted">已吃</small><div><b>${r0(t.kcal)}</b></div></div>
         <div><small class="muted">目標</small><div><b>${goal}</b></div></div>
-        <div><small class="muted">已攝取</small><div><b>${r0(t.kcal)}</b></div></div>
-        <div><small class="muted">${goal - t.kcal < 0 ? '超過' : '剩餘'}</small><div><b style="color:${goal - t.kcal < 0 ? 'var(--accent-text)' : 'var(--good)'}">${Math.abs(r0(goal - t.kcal))}</b></div></div>
       </div>
     </div>
     ${MEALS.map(([k, n]) => {
       const items = S.entries.filter((e) => e.date === cur && e.meal === k);
       const hasYesterday = S.entries.some((e) => e.date === yesterday && e.meal === k);
       return `<div class="card">
-        <div class="card-head"><h3>${n}</h3><span class="kcal num">${r0(foodTotals(cur, k).kcal)} kcal</span></div>
+        <div class="card-head"><h3>${mealIcon[k]} ${n}</h3><span class="kcal num">${r0(foodTotals(cur, k).kcal)} kcal</span></div>
         <div class="list">${items.length ? items.map((e) => {
           const nn = nut(e);
           return `<button class="row" data-action="edit-entry" data-id="${e.id}">
@@ -218,7 +266,9 @@ function renderDiary() {
             <div class="kcal num">${r0(nn.kcal)}</div></button>`;
         }).join('') : '<div class="empty">還沒有記錄</div>'}</div>
         <div class="btn-row start">
-          <button class="link-btn" data-action="add-food" data-meal="${k}">＋ 新增食物</button>
+          <button class="link-btn" data-action="add-food" data-meal="${k}">＋ ${k === 'drinks' ? '新增飲料' : '新增食物'}</button>
+          ${k === 'drinks' ? `<button class="link-btn" data-action="drink" data-meal="${k}">🧋 手搖飲計算</button>` : ''}
+          <button class="link-btn" data-action="manual" data-meal="${k}">✏️ 自行輸入</button>
           ${hasYesterday && !items.length ? `<button class="link-btn" data-action="copy-meal" data-meal="${k}">↻ 複製昨天的${n}</button>` : ''}
         </div>
       </div>`;
@@ -313,8 +363,8 @@ function renderSettings() {
 
     <div class="card">
       <div class="card-head"><h3>自訂食物</h3><span class="muted">${S.customFoods.length} 項</span></div>
-      <div class="list">${S.customFoods.length ? S.customFoods.map((f) => `<div class="row"><div class="grow"><div class="name">${esc(f.name)}</div>
-        <div class="sub">${esc(f.serving)} · ${r0(f.kcal)} kcal</div></div><button class="icon-btn" data-action="del-custom" data-id="${f.id}" aria-label="刪除">✕</button></div>`).join('')
+      <div class="list">${S.customFoods.length ? S.customFoods.map((f) => `<div class="row"><button class="grow link-row" data-action="edit-custom" data-id="${f.id}"><div class="name">${esc(f.name)}</div>
+        <div class="sub">${esc(f.serving)} · ${r0(f.kcal)} kcal${f.barcode ? ' · 條碼 ' + esc(f.barcode) : ''}</div></button><button class="icon-btn" data-action="del-custom" data-id="${f.id}" aria-label="刪除">✕</button></div>`).join('')
         : '<div class="empty">在「新增食物」裡可以建立自己的食物。</div>'}</div>
     </div>
 
@@ -395,10 +445,18 @@ function showLocalResults(q) {
   const box = $('#food-results');
   const query = q.trim().toLowerCase();
   if (!query) {
+    if (foodMeal === 'drinks') {
+      const isDrink = (f) => /drink/.test(f.tags || '') || String(f.id).startsWith('drink:');
+      const recent = S.recents.filter(isDrink);
+      lists.local = [...recent, ...FOODS.filter(isDrink)];
+      box.innerHTML = (recent.length ? `<div class="list-section">最近喝過</div>${recent.map((f, i) => foodRow(f, i, 'local')).join('')}` : '') +
+        `<div class="list-section">常見飲料</div>${lists.local.slice(recent.length).map((f, i) => foodRow(f, i + recent.length, 'local')).join('')}`;
+      return;
+    }
     lists.local = [...S.recents];
     box.innerHTML = lists.local.length
       ? `<div class="list-section">最近吃過</div>${lists.local.map((f, i) => foodRow(f, i, 'local')).join('')}`
-      : '<p class="empty">輸入食物名稱搜尋，或用掃條碼、快速加熱量。</p>';
+      : '<p class="empty">輸入食物名稱搜尋，或用掃條碼、手搖飲計算。找不到的食物可以按「自行輸入」。</p>';
     return;
   }
   const match = (f) => (f.name + ' ' + (f.brand || '') + ' ' + (f.tags || '')).toLowerCase().includes(query);
@@ -410,7 +468,9 @@ function showLocalResults(q) {
   }).slice(0, 30);
   box.innerHTML = (lists.local.length
     ? `<div class="list-section">我的食物與常見食物</div>${lists.local.map((f, i) => foodRow(f, i, 'local')).join('')}`
-    : '') + '<div id="online-results"></div>';
+    : '') + '<div id="online-results"></div>' +
+    `<button class="row add-new" data-action="new-custom" data-name="${esc(q.trim())}">
+      <div class="grow"><div class="name">＋ 自己新增「${esc(q.trim())}」</div><div class="sub">找不到或數字不對？照營養標示自己建立</div></div></button>`;
 }
 
 async function searchOnline(q) {
@@ -426,7 +486,7 @@ async function searchOnline(q) {
     if (seq !== searchSeq) return;
     lists.online = (data.products || []).map(offToFood).filter(Boolean);
     box.innerHTML = '<div class="list-section">Open Food Facts 線上資料庫</div>' +
-      (lists.online.length ? lists.online.map((f, i) => foodRow(f, i, 'online')).join('') : '<p class="empty">線上沒有找到，試試別的關鍵字，或建立自訂食物。</p>');
+      (lists.online.length ? lists.online.map((f, i) => foodRow(f, i, 'online')).join('') : '<p class="empty">線上沒有找到，可以換個關鍵字，或用下面的按鈕自己新增。</p>');
   } catch (e) {
     if (seq === searchSeq) box.innerHTML = `<p class="empty">線上搜尋失敗（${esc(e.message)}），請檢查網路。</p>`;
   }
@@ -492,7 +552,7 @@ $('#qty-form').addEventListener('submit', (e) => {
     const en = S.entries.find((x) => x.id === qtyCtx.entryId);
     Object.assign(en, { amount, qty, meal });
   } else {
-    S.entries.push({ id: uid(), date: cur, meal, food: qtyCtx.food, amount, qty });
+    S.entries.push({ id: uid(), date: cur, meal, food: { ...qtyCtx.food }, amount, qty });
     rememberFood(qtyCtx.food);
   }
   save();
@@ -510,91 +570,245 @@ $('#qty-delete').addEventListener('click', () => {
 });
 
 // ================= custom food / quick add =================
-function openCustom(mode) {
+// mode: 'quick'（只加熱量）| 'custom'（新增自訂食物）| 'edit'（編輯自訂食物）
+function openCustom(mode, preset = {}) {
   const form = $('#custom-form');
   form.reset();
   form.mode.value = mode;
-  $('#custom-title').textContent = mode === 'quick' ? '快速加熱量' : '自訂食物';
+  form.barcode.value = preset.barcode || '';
+  form.editId.value = mode === 'edit' ? preset.id : '';
+  $('#custom-title').textContent = { quick: '快速加熱量', custom: '新增食物', edit: '編輯自訂食物' }[mode];
   $('#custom-serving-wrap').hidden = mode === 'quick';
-  form.name.value = mode === 'quick' ? '快速加入' : '';
+  $('#custom-save-wrap').hidden = mode !== 'custom';
+  $('#custom-submit').textContent = mode === 'custom' ? '儲存並加入' : '儲存';
+  const hint = [];
+  if (preset.barcode) hint.push(`條碼 ${preset.barcode}：儲存後下次掃這個條碼就會直接找到。`);
+  if (mode !== 'quick') hint.push('照包裝上營養標示的「每一份」填寫即可，蛋白質、碳水、脂肪可以留空。');
+  $('#custom-hint').textContent = hint.join(' ');
+  $('#custom-hint').hidden = !hint.length;
+  form.name.value = mode === 'quick' ? '快速加入' : preset.name || '';
+  if (mode === 'edit') {
+    form.serving.value = preset.serving || '';
+    for (const k of ['kcal', 'p', 'c', 'f']) form[k].value = preset[k] || '';
+  }
   $('#dlg-custom').showModal();
-  (mode === 'quick' ? form.kcal : form.name).focus();
+  (mode === 'quick' || preset.name ? form.kcal : form.name).focus();
 }
 
 $('#custom-form').addEventListener('submit', (e) => {
   e.preventDefault();
   const fd = new FormData(e.target);
   const mode = fd.get('mode');
-  const food = {
-    id: 'custom:' + uid(), name: fd.get('name').trim() || '快速加入', serving: (fd.get('serving') || '').trim() || '1 份',
+  const fields = {
+    name: fd.get('name').trim() || '快速加入', serving: (fd.get('serving') || '').trim() || '1 份',
     kcal: num(fd.get('kcal')), p: num(fd.get('p')), c: num(fd.get('c')), f: num(fd.get('f')),
   };
+  if (fd.get('barcode')) fields.barcode = fd.get('barcode');
   $('#dlg-custom').close();
   if (mode === 'quick') {
-    S.entries.push({ id: uid(), date: cur, meal: foodMeal, food, amount: 1, qty: 1 });
+    S.entries.push({ id: uid(), date: cur, meal: foodMeal, food: { id: 'custom:' + uid(), ...fields }, amount: 1, qty: 1 });
     save();
     $('#dlg-food').close();
-    toast(`已加入 ${r0(food.kcal)} kcal`);
+    toast(`已加入 ${r0(fields.kcal)} kcal`);
     render();
-  } else {
-    S.customFoods.unshift(food);
+  } else if (mode === 'edit') {
+    const f = S.customFoods.find((x) => x.id === fd.get('editId'));
+    if (f) Object.assign(f, fields);
     save();
+    render();
+    toast('已更新（之前記錄的份量不受影響）');
+  } else {
+    const food = { id: 'custom:' + uid(), ...fields };
+    if (fd.get('saveMine')) {
+      if (food.barcode) S.customFoods = S.customFoods.filter((x) => x.barcode !== food.barcode);
+      S.customFoods.unshift(food);
+      save();
+    }
     openQty(food);
   }
 });
 
+// ================= 手搖飲計算機 =================
+function openDrink(meal) {
+  const radios = (name, list, checkedId) => list.map((x) =>
+    `<label><input type="radio" name="${name}" value="${x.id}" ${x.id === checkedId ? 'checked' : ''} />${x.name}</label>`).join('');
+  $('#drink-base').innerHTML = radios('base', DRINK_BASES, 'milktea');
+  $('#drink-size').innerHTML = radios('size', DRINK_SIZES.map((z) => ({ ...z, name: `${z.name} ${z.ml}ml` })), 'L');
+  $('#drink-sugar').innerHTML = radios('sugar', DRINK_SUGARS, 30);
+  $('#drink-toppings').innerHTML = DRINK_TOPPINGS.map((t) =>
+    `<label><input type="checkbox" name="top" value="${t.id}" />${t.name}</label>`).join('');
+  $('#drink-meal').innerHTML = MEALS.map(([k, n]) => `<option value="${k}" ${k === (meal || 'drinks') ? 'selected' : ''}>${n}</option>`).join('');
+  $('#drink-form').note.value = '';
+  updateDrink();
+  $('#dlg-drink').showModal();
+}
+
+function buildDrink() {
+  const form = $('#drink-form');
+  const base = DRINK_BASES.find((b) => b.id === form.base.value);
+  const size = DRINK_SIZES.find((z) => z.id === form.size.value);
+  const sugar = DRINK_SUGARS.find((x) => String(x.id) === form.sugar.value);
+  const tops = [...form.querySelectorAll('input[name=top]:checked')].map((i) => DRINK_TOPPINGS.find((t) => t.id === i.value));
+  const ratio = size.ml / 700;
+  const sugarG = FULL_SUGAR_G_700 * ratio * (sugar.id / 100);
+  const n = { kcal: base.kcal * ratio + sugarG * 4, p: base.p * ratio, c: base.c * ratio + sugarG, f: base.f * ratio };
+  for (const t of tops) { n.kcal += t.kcal; n.p += t.p; n.c += t.c; n.f += t.f; }
+  const shortBase = base.name.replace(/（.*）/, '');
+  const note = form.note.value.trim();
+  const name = `${note ? note + ' ' : ''}${shortBase}${tops.length ? '＋' + tops.map((t) => t.name).join('＋') : ''}（${size.name}・${sugar.name}）`;
+  return {
+    food: { id: 'drink:' + uid(), name, serving: `1 杯 (${size.ml}ml)`, kcal: r0(n.kcal), p: r1(n.p), c: r1(n.c), f: r1(n.f), tags: 'drink 手搖飲' },
+    sugarG,
+  };
+}
+
+function updateDrink() {
+  const { food, sugarG } = buildDrink();
+  $('#drink-kcal').textContent = food.kcal;
+  $('#drink-detail').textContent = `· 糖約 ${r0(sugarG)} g · 碳水 ${r0(food.c)} g`;
+}
+$('#drink-form').addEventListener('change', updateDrink);
+$('#drink-form').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const { food } = buildDrink();
+  S.entries.push({ id: uid(), date: cur, meal: $('#drink-meal').value, food, amount: 1, qty: 1 });
+  rememberFood(food);
+  save();
+  $('#dlg-drink').close();
+  $('#dlg-food').close();
+  toast(`已加入：${food.name}（${food.kcal} kcal）`);
+  render();
+});
+
 // ================= barcode =================
+// 優先用瀏覽器內建的 BarcodeDetector（Android Chrome）；不支援時（iPhone Safari 等）
+// 載入內附的 ZXing WebAssembly 版本（vendor/，第一次掃描時才下載，約 1 MB）。
+const BARCODE_FORMATS = ['ean_13', 'ean_8', 'upc_a', 'upc_e'];
+let detectorPromise = null;
+
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    const el = document.createElement('script');
+    el.src = src;
+    el.onload = resolve;
+    el.onerror = () => reject(new Error('掃描元件載入失敗'));
+    document.head.append(el);
+  });
+}
+
+function getDetector() {
+  detectorPromise ||= (async () => {
+    if ('BarcodeDetector' in window) {
+      try {
+        const supported = await window.BarcodeDetector.getSupportedFormats();
+        if (BARCODE_FORMATS.every((f) => supported.includes(f))) return new window.BarcodeDetector({ formats: BARCODE_FORMATS });
+      } catch { /* 改用內附版本 */ }
+    }
+    await loadScript('vendor/barcode-detector.js');
+    const api = window.BarcodeDetectionAPI;
+    api.setZXingModuleOverrides({
+      locateFile: (path, prefix) => (path.endsWith('.wasm') ? new URL('vendor/' + path, document.baseURI).href : prefix + path),
+    });
+    return new api.BarcodeDetector({ formats: BARCODE_FORMATS });
+  })().catch((e) => { detectorPromise = null; throw e; });
+  return detectorPromise;
+}
+
 let scanStream = null;
+function setScanHint(text, actions = '') {
+  $('#scan-hint').textContent = text;
+  $('#scan-actions').innerHTML = actions;
+}
+
 async function openScan() {
   $('#barcode-input').value = '';
-  const video = $('#scan-video');
-  const hint = $('#scan-hint');
   $('#dlg-scan').showModal();
-  if (!('BarcodeDetector' in window) || !navigator.mediaDevices?.getUserMedia) {
-    video.hidden = true;
-    hint.textContent = '這個瀏覽器不支援相機掃條碼（iPhone Safari 目前不支援），請手動輸入包裝上的條碼數字。';
+  getDetector().catch(() => {}); // 先在背景載入
+  if (!navigator.mediaDevices?.getUserMedia) {
+    setScanHint('這個瀏覽器不能直接開相機，請用「用照片辨識」拍條碼，或手動輸入條碼數字。');
     return;
   }
+  setScanHint('開啟相機中…');
   try {
-    hint.textContent = '把條碼對準鏡頭…';
-    scanStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+    scanStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false,
+    });
+    if (!$('#dlg-scan').open) { stopScan(); return; }
+    const video = $('#scan-video');
     video.srcObject = scanStream;
-    video.hidden = false;
+    $('#scan-box').hidden = false;
     await video.play();
-    const detector = new window.BarcodeDetector({ formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e'] });
+    setScanHint('把條碼放進框框裡，拿穩一點…');
+    const detector = await getDetector();
     while (scanStream) {
-      const codes = await detector.detect(video).catch(() => []);
-      if (codes.length) { const c = codes[0].rawValue; stopScan(); lookupBarcode(c); return; }
-      await new Promise((r) => setTimeout(r, 250));
+      if (video.readyState >= 2) {
+        const codes = await detector.detect(video).catch(() => []);
+        if (codes.length && scanStream) {
+          navigator.vibrate?.(60);
+          const c = codes[0].rawValue;
+          stopScan();
+          lookupBarcode(c);
+          return;
+        }
+      }
+      await new Promise((r) => setTimeout(r, 200));
     }
   } catch (e) {
-    video.hidden = true;
-    hint.textContent = '無法開啟相機（' + e.message + '），請手動輸入條碼。';
+    stopScan();
+    const denied = e.name === 'NotAllowedError';
+    setScanHint(denied
+      ? '沒有相機權限。請到瀏覽器設定允許這個網站使用相機，或改用「用照片辨識」、手動輸入條碼。'
+      : `無法開啟相機（${e.message}），請改用「用照片辨識」或手動輸入條碼。`);
   }
 }
+
 function stopScan() {
   scanStream?.getTracks().forEach((t) => t.stop());
   scanStream = null;
-  $('#scan-video').hidden = true;
+  const video = $('#scan-video');
+  video.srcObject = null;
+  $('#scan-box').hidden = true;
 }
 $('#dlg-scan').addEventListener('close', stopScan);
+
+$('#scan-photo').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  stopScan();
+  setScanHint('辨識照片中…');
+  try {
+    const detector = await getDetector();
+    const codes = await detector.detect(await createImageBitmap(file));
+    if (codes.length) lookupBarcode(codes[0].rawValue);
+    else setScanHint('照片裡找不到條碼。請靠近一點、對好焦再拍一次，或手動輸入條碼數字。');
+  } catch (err) {
+    setScanHint('辨識失敗：' + err.message);
+  }
+});
 
 async function lookupBarcode(code) {
   code = String(code).replace(/\D/g, '');
   if (!code) return;
-  $('#scan-hint').textContent = `查詢 ${code}…`;
+  $('#barcode-input').value = code;
+  // 1) 自己建立過的條碼，直接用（離線也可以）
+  const mine = S.customFoods.find((f) => f.barcode === code);
+  if (mine) { $('#dlg-scan').close(); openQty(mine); return; }
+  // 2) 查 Open Food Facts
+  setScanHint(`查詢 ${code}…`);
+  const createBtn = `<button class="chip" data-action="new-custom" data-barcode="${code}">＋ 自己建立這個食物</button>`;
   try {
     const res = await fetch(`https://world.openfoodfacts.org/api/v2/product/${code}.json?fields=code,product_name,product_name_zh,brands,nutriments,serving_quantity`);
-    const data = await res.json();
-    const food = data.status === 1 ? offToFood(data.product) : null;
+    const data = res.ok || res.status === 404 ? await res.json() : null;
+    const food = data?.status === 1 ? offToFood(data.product) : null;
     if (!food) {
-      $('#scan-hint').textContent = `資料庫裡找不到 ${code} 的營養資料，可以用「自訂食物」自己建立。`;
+      setScanHint(`資料庫裡沒有條碼 ${code} 的營養資料。照包裝上的營養標示自己建立一次，之後掃這個條碼就會直接找到。`, createBtn);
       return;
     }
     $('#dlg-scan').close();
-    openQty(food);
+    openQty({ ...food, barcode: code });
   } catch (e) {
-    $('#scan-hint').textContent = '查詢失敗：' + e.message;
+    setScanHint(`查詢失敗（${e.message}）。可以檢查網路後再試，或直接自己建立這個食物。`, createBtn);
   }
 }
 $('#barcode-form').addEventListener('submit', (e) => { e.preventDefault(); lookupBarcode($('#barcode-input').value); });
@@ -630,7 +844,13 @@ document.addEventListener('click', (e) => {
     case 'pick-food': openQty({ ...lists[d.list][+d.i] }); break;
     case 'edit-entry': { const en = S.entries.find((x) => x.id === d.id); if (en) openQty(en.food, en); break; }
     case 'quick-add': openCustom('quick'); break;
-    case 'new-custom': openCustom('custom'); break;
+    case 'manual': foodMeal = d.meal || defaultMeal(); openCustom('custom'); break;
+    case 'drink': openDrink(d.meal || 'drinks'); break;
+    case 'new-custom':
+      if ($('#dlg-scan').open) $('#dlg-scan').close();
+      openCustom('custom', { name: d.name, barcode: d.barcode });
+      break;
+    case 'edit-custom': { const f = S.customFoods.find((x) => x.id === d.id); if (f) openCustom('edit', f); break; }
     case 'scan': openScan(); break;
     case 'copy-meal': {
       const src = S.entries.filter((x) => x.date === addDays(cur, -1) && x.meal === d.meal);

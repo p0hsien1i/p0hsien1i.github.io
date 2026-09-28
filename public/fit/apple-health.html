@@ -96,25 +96,6 @@
     </div>
 
     <div class="card">
-      <h2><span class="step-no">4+</span>加上步數與距離（選用）</h2>
-      <p class="muted">在同一個「Chef同步」捷徑裡，把第 4 步做好的那一整段<b>再複製兩份</b>，只改「類型」和「網址最後面」。步數、距離只用來顯示，不會影響熱量計算。</p>
-      <ol>
-        <li>打開「Chef同步」捷徑，長按第一個動作「尋找健康樣本」→ 選「<b>複製</b>」（Duplicate）。對「重複每一個項目」「文字」「合併文字」「取得 URL 的內容」也各做一次，複製出來的會依序排在下面。
-          <br/><span class="muted">比較簡單的方法：捷徑右上角「⋯」→ 多選，把這 5 個動作一起選起來複製。</span></li>
-        <li>第二段（步數）：
-          <br/>・「尋找健康樣本」的類型改成 <b>步數</b>（其他篩選照舊：最近 15 天、來源是 Connect、依日分組）
-          <br/>・「取得 URL 的內容」網址改成 <code>https://apo-health.pohsienbrianli.workers.dev/sync?type=steps</code>
-          <br/>・「重複」裡的「文字」和「合併文字」要改成指向<b>這一段</b>的變數（點一下變數重新選，確認不是指到第一段的）</li>
-        <li>第三段（距離）：
-          <br/>・類型改成 <b>步行＋跑步距離</b>
-          <br/>・網址改成 <code>https://apo-health.pohsienbrianli.workers.dev/sync?type=distance</code>
-          <br/>・同樣確認變數都指向這一段</li>
-        <li>按 ▶ 執行，每一段都會回 <code>{"ok":true,...}</code>（如果有「顯示結果」）。回 App 首頁，活動那一行下面會多出「🚶 9,812 步 · 7.4 km」。</li>
-      </ol>
-      <p class="note">第一段（活動能量）的網址維持 <code>/sync</code> 不用改。距離的單位建議是公里；如果你的 iPhone 回傳公尺，App 會自動換算。</p>
-    </div>
-
-    <div class="card">
       <h2><span class="step-no">5</span>設定「每小時」自動同步</h2>
       <p class="muted">iPhone 的自動化沒有「每小時重複」這個選項，所以用下面幾種觸發組合起來，效果就是每小時左右＋每次打開 App 前都會更新：</p>
       <ol>

@@ -307,4 +307,3 @@ b.big { font-size: 1.4rem; }
 .waist-line { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); }
 .goal-bar { height: 10px; border-radius: 999px; background: var(--surface-2); overflow: hidden; margin-top: 12px; }
 .goal-bar i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--carb), var(--good)); }
-.walk-line { margin-top: 3px; color: var(--muted); font-weight: 700; }

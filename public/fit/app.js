@@ -313,8 +313,8 @@ function renderSettings() {
 
     <div class="card">
       <div class="card-head"><h3>自訂食物</h3><span class="muted">${S.customFoods.length} 項</span></div>
-      <div class="list">${S.customFoods.length ? S.customFoods.map((f) => `<div class="row"><div class="grow"><div class="name">${esc(f.name)}</div>
-        <div class="sub">${esc(f.serving)} · ${r0(f.kcal)} kcal</div></div><button class="icon-btn" data-action="del-custom" data-id="${f.id}" aria-label="刪除">✕</button></div>`).join('')
+      <div class="list">${S.customFoods.length ? S.customFoods.map((f) => `<div class="row"><button class="grow link-row" data-action="edit-custom" data-id="${f.id}"><div class="name">${esc(f.name)}</div>
+        <div class="sub">${esc(f.serving)} · ${r0(f.kcal)} kcal${f.barcode ? ' · 條碼 ' + esc(f.barcode) : ''}</div></button><button class="icon-btn" data-action="del-custom" data-id="${f.id}" aria-label="刪除">✕</button></div>`).join('')
         : '<div class="empty">在「新增食物」裡可以建立自己的食物。</div>'}</div>
     </div>
 
@@ -398,7 +398,7 @@ function showLocalResults(q) {
     lists.local = [...S.recents];
     box.innerHTML = lists.local.length
       ? `<div class="list-section">最近吃過</div>${lists.local.map((f, i) => foodRow(f, i, 'local')).join('')}`
-      : '<p class="empty">輸入食物名稱搜尋，或用掃條碼、快速加熱量。</p>';
+      : '<p class="empty">輸入食物名稱搜尋，或用掃條碼、快速加熱量。找不到的食物可以自己新增。</p>';
     return;
   }
   const match = (f) => (f.name + ' ' + (f.brand || '') + ' ' + (f.tags || '')).toLowerCase().includes(query);
@@ -410,7 +410,9 @@ function showLocalResults(q) {
   }).slice(0, 30);
   box.innerHTML = (lists.local.length
     ? `<div class="list-section">我的食物與常見食物</div>${lists.local.map((f, i) => foodRow(f, i, 'local')).join('')}`
-    : '') + '<div id="online-results"></div>';
+    : '') + '<div id="online-results"></div>' +
+    `<button class="row add-new" data-action="new-custom" data-name="${esc(q.trim())}">
+      <div class="grow"><div class="name">＋ 自己新增「${esc(q.trim())}」</div><div class="sub">找不到或數字不對？照營養標示自己建立</div></div></button>`;
 }
 
 async function searchOnline(q) {
@@ -426,7 +428,7 @@ async function searchOnline(q) {
     if (seq !== searchSeq) return;
     lists.online = (data.products || []).map(offToFood).filter(Boolean);
     box.innerHTML = '<div class="list-section">Open Food Facts 線上資料庫</div>' +
-      (lists.online.length ? lists.online.map((f, i) => foodRow(f, i, 'online')).join('') : '<p class="empty">線上沒有找到，試試別的關鍵字，或建立自訂食物。</p>');
+      (lists.online.length ? lists.online.map((f, i) => foodRow(f, i, 'online')).join('') : '<p class="empty">線上沒有找到，可以換個關鍵字，或用下面的按鈕自己新增。</p>');
   } catch (e) {
     if (seq === searchSeq) box.innerHTML = `<p class="empty">線上搜尋失敗（${esc(e.message)}），請檢查網路。</p>`;
   }
@@ -492,7 +494,7 @@ $('#qty-form').addEventListener('submit', (e) => {
     const en = S.entries.find((x) => x.id === qtyCtx.entryId);
     Object.assign(en, { amount, qty, meal });
   } else {
-    S.entries.push({ id: uid(), date: cur, meal, food: qtyCtx.food, amount, qty });
+    S.entries.push({ id: uid(), date: cur, meal, food: { ...qtyCtx.food }, amount, qty });
     rememberFood(qtyCtx.food);
   }
   save();
@@ -510,33 +512,55 @@ $('#qty-delete').addEventListener('click', () => {
 });
 
 // ================= custom food / quick add =================
-function openCustom(mode) {
+// mode: 'quick'（只加熱量）| 'custom'（新增自訂食物）| 'edit'（編輯自訂食物）
+function openCustom(mode, preset = {}) {
   const form = $('#custom-form');
   form.reset();
   form.mode.value = mode;
-  $('#custom-title').textContent = mode === 'quick' ? '快速加熱量' : '自訂食物';
+  form.barcode.value = preset.barcode || '';
+  form.editId.value = mode === 'edit' ? preset.id : '';
+  $('#custom-title').textContent = { quick: '快速加熱量', custom: '新增食物', edit: '編輯自訂食物' }[mode];
   $('#custom-serving-wrap').hidden = mode === 'quick';
-  form.name.value = mode === 'quick' ? '快速加入' : '';
+  $('#custom-submit').textContent = mode === 'custom' ? '儲存並加入' : '儲存';
+  const hint = [];
+  if (preset.barcode) hint.push(`條碼 ${preset.barcode}：儲存後下次掃這個條碼就會直接找到。`);
+  if (mode !== 'quick') hint.push('照包裝上營養標示的「每一份」填寫即可，蛋白質、碳水、脂肪可以留空。');
+  $('#custom-hint').textContent = hint.join(' ');
+  $('#custom-hint').hidden = !hint.length;
+  form.name.value = mode === 'quick' ? '快速加入' : preset.name || '';
+  if (mode === 'edit') {
+    form.serving.value = preset.serving || '';
+    for (const k of ['kcal', 'p', 'c', 'f']) form[k].value = preset[k] || '';
+  }
   $('#dlg-custom').showModal();
-  (mode === 'quick' ? form.kcal : form.name).focus();
+  (mode === 'quick' || preset.name ? form.kcal : form.name).focus();
 }
 
 $('#custom-form').addEventListener('submit', (e) => {
   e.preventDefault();
   const fd = new FormData(e.target);
   const mode = fd.get('mode');
-  const food = {
-    id: 'custom:' + uid(), name: fd.get('name').trim() || '快速加入', serving: (fd.get('serving') || '').trim() || '1 份',
+  const fields = {
+    name: fd.get('name').trim() || '快速加入', serving: (fd.get('serving') || '').trim() || '1 份',
     kcal: num(fd.get('kcal')), p: num(fd.get('p')), c: num(fd.get('c')), f: num(fd.get('f')),
   };
+  if (fd.get('barcode')) fields.barcode = fd.get('barcode');
   $('#dlg-custom').close();
   if (mode === 'quick') {
-    S.entries.push({ id: uid(), date: cur, meal: foodMeal, food, amount: 1, qty: 1 });
+    S.entries.push({ id: uid(), date: cur, meal: foodMeal, food: { id: 'custom:' + uid(), ...fields }, amount: 1, qty: 1 });
     save();
     $('#dlg-food').close();
-    toast(`已加入 ${r0(food.kcal)} kcal`);
+    toast(`已加入 ${r0(fields.kcal)} kcal`);
     render();
+  } else if (mode === 'edit') {
+    const f = S.customFoods.find((x) => x.id === fd.get('editId'));
+    if (f) Object.assign(f, fields);
+    save();
+    render();
+    toast('已更新（之前記錄的份量不受影響）');
   } else {
+    const food = { id: 'custom:' + uid(), ...fields };
+    if (food.barcode) S.customFoods = S.customFoods.filter((x) => x.barcode !== food.barcode);
     S.customFoods.unshift(food);
     save();
     openQty(food);
@@ -544,57 +568,134 @@ $('#custom-form').addEventListener('submit', (e) => {
 });
 
 // ================= barcode =================
+// 優先用瀏覽器內建的 BarcodeDetector（Android Chrome）；不支援時（iPhone Safari 等）
+// 載入內附的 ZXing WebAssembly 版本（vendor/，第一次掃描時才下載，約 1 MB）。
+const BARCODE_FORMATS = ['ean_13', 'ean_8', 'upc_a', 'upc_e'];
+let detectorPromise = null;
+
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    const el = document.createElement('script');
+    el.src = src;
+    el.onload = resolve;
+    el.onerror = () => reject(new Error('掃描元件載入失敗'));
+    document.head.append(el);
+  });
+}
+
+function getDetector() {
+  detectorPromise ||= (async () => {
+    if ('BarcodeDetector' in window) {
+      try {
+        const supported = await window.BarcodeDetector.getSupportedFormats();
+        if (BARCODE_FORMATS.every((f) => supported.includes(f))) return new window.BarcodeDetector({ formats: BARCODE_FORMATS });
+      } catch { /* 改用內附版本 */ }
+    }
+    await loadScript('vendor/barcode-detector.js');
+    const api = window.BarcodeDetectionAPI;
+    api.setZXingModuleOverrides({
+      locateFile: (path, prefix) => (path.endsWith('.wasm') ? new URL('vendor/' + path, document.baseURI).href : prefix + path),
+    });
+    return new api.BarcodeDetector({ formats: BARCODE_FORMATS });
+  })().catch((e) => { detectorPromise = null; throw e; });
+  return detectorPromise;
+}
+
 let scanStream = null;
+function setScanHint(text, actions = '') {
+  $('#scan-hint').textContent = text;
+  $('#scan-actions').innerHTML = actions;
+}
+
 async function openScan() {
   $('#barcode-input').value = '';
-  const video = $('#scan-video');
-  const hint = $('#scan-hint');
   $('#dlg-scan').showModal();
-  if (!('BarcodeDetector' in window) || !navigator.mediaDevices?.getUserMedia) {
-    video.hidden = true;
-    hint.textContent = '這個瀏覽器不支援相機掃條碼（iPhone Safari 目前不支援），請手動輸入包裝上的條碼數字。';
+  getDetector().catch(() => {}); // 先在背景載入
+  if (!navigator.mediaDevices?.getUserMedia) {
+    setScanHint('這個瀏覽器不能直接開相機，請用「用照片辨識」拍條碼，或手動輸入條碼數字。');
     return;
   }
+  setScanHint('開啟相機中…');
   try {
-    hint.textContent = '把條碼對準鏡頭…';
-    scanStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+    scanStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false,
+    });
+    if (!$('#dlg-scan').open) { stopScan(); return; }
+    const video = $('#scan-video');
     video.srcObject = scanStream;
-    video.hidden = false;
+    $('#scan-box').hidden = false;
     await video.play();
-    const detector = new window.BarcodeDetector({ formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e'] });
+    setScanHint('把條碼放進框框裡，拿穩一點…');
+    const detector = await getDetector();
     while (scanStream) {
-      const codes = await detector.detect(video).catch(() => []);
-      if (codes.length) { const c = codes[0].rawValue; stopScan(); lookupBarcode(c); return; }
-      await new Promise((r) => setTimeout(r, 250));
+      if (video.readyState >= 2) {
+        const codes = await detector.detect(video).catch(() => []);
+        if (codes.length && scanStream) {
+          navigator.vibrate?.(60);
+          const c = codes[0].rawValue;
+          stopScan();
+          lookupBarcode(c);
+          return;
+        }
+      }
+      await new Promise((r) => setTimeout(r, 200));
     }
   } catch (e) {
-    video.hidden = true;
-    hint.textContent = '無法開啟相機（' + e.message + '），請手動輸入條碼。';
+    stopScan();
+    const denied = e.name === 'NotAllowedError';
+    setScanHint(denied
+      ? '沒有相機權限。請到瀏覽器設定允許這個網站使用相機，或改用「用照片辨識」、手動輸入條碼。'
+      : `無法開啟相機（${e.message}），請改用「用照片辨識」或手動輸入條碼。`);
   }
 }
+
 function stopScan() {
   scanStream?.getTracks().forEach((t) => t.stop());
   scanStream = null;
-  $('#scan-video').hidden = true;
+  const video = $('#scan-video');
+  video.srcObject = null;
+  $('#scan-box').hidden = true;
 }
 $('#dlg-scan').addEventListener('close', stopScan);
+
+$('#scan-photo').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  stopScan();
+  setScanHint('辨識照片中…');
+  try {
+    const detector = await getDetector();
+    const codes = await detector.detect(await createImageBitmap(file));
+    if (codes.length) lookupBarcode(codes[0].rawValue);
+    else setScanHint('照片裡找不到條碼。請靠近一點、對好焦再拍一次，或手動輸入條碼數字。');
+  } catch (err) {
+    setScanHint('辨識失敗：' + err.message);
+  }
+});
 
 async function lookupBarcode(code) {
   code = String(code).replace(/\D/g, '');
   if (!code) return;
-  $('#scan-hint').textContent = `查詢 ${code}…`;
+  $('#barcode-input').value = code;
+  // 1) 自己建立過的條碼，直接用（離線也可以）
+  const mine = S.customFoods.find((f) => f.barcode === code);
+  if (mine) { $('#dlg-scan').close(); openQty(mine); return; }
+  // 2) 查 Open Food Facts
+  setScanHint(`查詢 ${code}…`);
+  const createBtn = `<button class="chip" data-action="new-custom" data-barcode="${code}">＋ 自己建立這個食物</button>`;
   try {
     const res = await fetch(`https://world.openfoodfacts.org/api/v2/product/${code}.json?fields=code,product_name,product_name_zh,brands,nutriments,serving_quantity`);
-    const data = await res.json();
-    const food = data.status === 1 ? offToFood(data.product) : null;
+    const data = res.ok || res.status === 404 ? await res.json() : null;
+    const food = data?.status === 1 ? offToFood(data.product) : null;
     if (!food) {
-      $('#scan-hint').textContent = `資料庫裡找不到 ${code} 的營養資料，可以用「自訂食物」自己建立。`;
+      setScanHint(`資料庫裡沒有條碼 ${code} 的營養資料。照包裝上的營養標示自己建立一次，之後掃這個條碼就會直接找到。`, createBtn);
       return;
     }
     $('#dlg-scan').close();
-    openQty(food);
+    openQty({ ...food, barcode: code });
   } catch (e) {
-    $('#scan-hint').textContent = '查詢失敗：' + e.message;
+    setScanHint(`查詢失敗（${e.message}）。可以檢查網路後再試，或直接自己建立這個食物。`, createBtn);
   }
 }
 $('#barcode-form').addEventListener('submit', (e) => { e.preventDefault(); lookupBarcode($('#barcode-input').value); });
@@ -630,7 +731,11 @@ document.addEventListener('click', (e) => {
     case 'pick-food': openQty({ ...lists[d.list][+d.i] }); break;
     case 'edit-entry': { const en = S.entries.find((x) => x.id === d.id); if (en) openQty(en.food, en); break; }
     case 'quick-add': openCustom('quick'); break;
-    case 'new-custom': openCustom('custom'); break;
+    case 'new-custom':
+      if ($('#dlg-scan').open) $('#dlg-scan').close();
+      openCustom('custom', { name: d.name, barcode: d.barcode });
+      break;
+    case 'edit-custom': { const f = S.customFoods.find((x) => x.id === d.id); if (f) openCustom('edit', f); break; }
     case 'scan': openScan(); break;
     case 'copy-meal': {
       const src = S.entries.filter((x) => x.date === addDays(cur, -1) && x.meal === d.meal);

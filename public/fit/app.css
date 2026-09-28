@@ -170,7 +170,15 @@ dialog.sheet {
 dialog::backdrop { background: rgb(0 0 0 / 45%); }
 .sheet-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
 .sheet-head small { color: var(--muted); font-weight: 400; font-size: .85rem; }
-#scan-video { width: 100%; border-radius: 12px; background: #000; margin-bottom: 8px; }
+.scan-box { position: relative; border-radius: 12px; overflow: hidden; background: #000; margin-bottom: 8px; }
+#scan-video { display: block; width: 100%; height: min(52vh, 360px); object-fit: cover; }
+.scan-guide {
+  position: absolute; left: 10%; right: 10%; top: 50%; height: 30%; transform: translateY(-50%);
+  border: 2px solid rgb(255 255 255 / 85%); border-radius: 12px; box-shadow: 0 0 0 999px rgb(0 0 0 / 35%);
+}
+.scan-guide::after { content: ""; position: absolute; left: 6%; right: 6%; top: 50%; height: 2px; background: var(--accent); opacity: .8; }
+.photo-chip { display: inline-flex; width: fit-content; margin-top: 4px; color: var(--text); cursor: pointer; }
+.row.add-new .name { color: var(--accent-text); }
 .macro-preview { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 14px; text-align: center; }
 .macro-preview div { background: var(--surface-2); border-radius: 12px; padding: 8px 4px; }
 .macro-preview b { display: block; font-size: 1.05rem; }
@@ -223,3 +231,4 @@ dialog::backdrop { background: rgb(0 0 0 / 45%); }
   .summary { grid-template-columns: 1fr; justify-items: center; }
   .equation { width: 100%; }
 }
+.link-row { background: none; border: 0; padding: 0; text-align: left; min-width: 0; }

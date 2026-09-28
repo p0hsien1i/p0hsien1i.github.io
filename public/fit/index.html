@@ -82,8 +82,9 @@
         <h2 id="custom-title">自訂食物</h2>
         <button type="button" class="icon-btn" data-close aria-label="關閉">✕</button>
       </div>
+      <p class="muted" id="custom-hint"></p>
       <label>名稱<input name="name" required placeholder="例如：媽媽的滷雞腿" /></label>
-      <label id="custom-serving-wrap">每份的描述<input name="serving" placeholder="1 份" /></label>
+      <label id="custom-serving-wrap">每份的描述<input name="serving" placeholder="例如：1 包 (45g)、1 碗" /></label>
       <div class="grid2">
         <label>熱量 kcal<input name="kcal" type="number" inputmode="decimal" min="0" step="any" required /></label>
         <label>蛋白質 g<input name="p" type="number" inputmode="decimal" min="0" step="any" /></label>
@@ -91,7 +92,9 @@
         <label>脂肪 g<input name="f" type="number" inputmode="decimal" min="0" step="any" /></label>
       </div>
       <input type="hidden" name="mode" />
-      <div class="btn-row"><button type="submit" class="btn primary">儲存</button></div>
+      <input type="hidden" name="barcode" />
+      <input type="hidden" name="editId" />
+      <div class="btn-row"><button type="submit" class="btn primary" id="custom-submit">儲存</button></div>
     </form>
   </dialog>
 
@@ -101,9 +104,14 @@
       <h2>掃描條碼</h2>
       <button class="icon-btn" data-close aria-label="關閉">✕</button>
     </div>
-    <video id="scan-video" playsinline muted hidden></video>
+    <div class="scan-box" id="scan-box" hidden>
+      <video id="scan-video" playsinline muted autoplay></video>
+      <div class="scan-guide" aria-hidden="true"></div>
+    </div>
     <p class="muted" id="scan-hint"></p>
-    <form id="barcode-form" class="search-row">
+    <div id="scan-actions" class="chip-row"></div>
+    <label class="chip photo-chip">📸 用照片辨識<input type="file" id="scan-photo" accept="image/*" capture="environment" class="visually-hidden" /></label>
+    <form id="barcode-form" class="search-row" style="margin-top:10px">
       <input id="barcode-input" inputmode="numeric" placeholder="或手動輸入條碼數字" />
       <button class="btn">查詢</button>
     </form>

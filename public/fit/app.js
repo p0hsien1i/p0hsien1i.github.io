@@ -69,60 +69,178 @@ let dataVer = 0; // 資料版本：每次儲存 +1，給計算快取用
 function save() {
   dataVer++;
   try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { toast('儲存失敗：' + e.message); }
-  scheduleBackup();
+  // 只有飲食、體重等要同步的資料有變才算「改動」（抓 Apple 健康資料不算）
+  const snap = stable(syncable(S));
+  if (snap !== lastSnap) { lastSnap = snap; markChanged(); }
 }
+let lastSnap = null;
 
-// ================= 雲端備份（存到自己的 Cloudflare 接收端） =================
-// 備份狀態另外存，避免「寫入備份時間」又觸發一次備份
+// ================= 雲端同步（手機、電腦共用同一份資料，存在自己的 Cloudflare 接收端） =================
+// 做法：記住「上次同步完的版本」(base)，每次同步時拿 本機 / 雲端 / base 三方比對，
+// 一筆一筆合併：只有一邊改過就用那一邊（刪除也算改），兩邊都改過同一筆就以比較晚改的那邊為準。
+// 同步狀態另外存，避免「寫入同步時間」又觸發一次同步
 const CLOUD_KEY = 'fanfit:cloud';
-let cloud = { enabled: true, lastBackupAt: null, error: '' };
+const BASE_KEY = 'fanfit:base';
+let cloud = { enabled: true, lastBackupAt: null, error: '', dirty: false, changedAt: null };
 try { Object.assign(cloud, JSON.parse(localStorage.getItem(CLOUD_KEY) || '{}')); } catch { /* 用預設值 */ }
+// 舊版只記備份時間：拿它當「這台最後改動時間」，沒備份過的裝置（例如剛設定的電腦）有衝突時就以雲端為準
+if (!cloud.changedAt && cloud.lastBackupAt) cloud.changedAt = cloud.lastBackupAt;
 const saveCloud = () => { try { localStorage.setItem(CLOUD_KEY, JSON.stringify(cloud)); } catch { /* 忽略 */ } };
 const cloudReady = () => !!(cloud.enabled && S.health?.token && S.health?.endpoint);
-const hasLocalData = () => !!(S.entries.length || S.customFoods.length || Object.keys(S.weights).length || Object.keys(S.waists || {}).length);
+const hasData = (d) => !!(d && (d.entries?.length || d.customFoods?.length || Object.keys(d.weights || {}).length || Object.keys(d.waists || {}).length));
+const hasLocalData = () => hasData(S);
 const cloudUrl = (path) => S.health.endpoint.replace(/\/+$/, '') + path;
 const cloudHeaders = () => ({ Authorization: 'Bearer ' + S.health.token });
-let backupTimer = null;
-let backupDirty = false;
+const SYNC_DELAY_MS = 3000;
+const SYNC_POLL_MS = 2 * 60 * 1000;
+let syncTimer = null;
+let syncing = null;
 
-function scheduleBackup() {
-  if (!cloudReady()) return;
-  backupDirty = true;
-  clearTimeout(backupTimer);
-  backupTimer = setTimeout(() => cloudBackup(), 30 * 1000);
-}
-
-async function cloudBackup({ force = false, keepalive = false } = {}) {
-  if (!cloudReady()) return false;
-  if (!force && !backupDirty) return true;
-  if (!hasLocalData()) return false; // 手機是空的就不上傳，避免蓋掉雲端的好備份
-  clearTimeout(backupTimer);
-  const body = JSON.stringify({ ...S, health: { ...S.health, token: '' } });
-  try {
-    const res = await fetch(cloudUrl('/backup'), {
-      method: 'PUT', headers: { ...cloudHeaders(), 'Content-Type': 'application/json' }, body,
-      keepalive: keepalive && body.length < 60000, // keepalive 有 64KB 上限
-    });
-    if (res.status === 401) throw new Error('同步密碼不對');
-    if (res.status === 404) throw new Error('接收端還沒更新，請到 GitHub 重跑一次「Deploy health worker」');
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    const j = await res.json();
-    backupDirty = false;
-    cloud.lastBackupAt = j.savedAt;
-    cloud.error = '';
-  } catch (e) {
-    cloud.error = /Load failed|Failed to fetch/i.test(e.message) ? '連不到雲端（沒有網路或接收端還沒部署）' : e.message;
-  }
+function markChanged() {
+  cloud.dirty = true;
+  cloud.changedAt = new Date().toISOString();
   saveCloud();
-  updateCloudStatus();
-  return !cloud.error;
+  scheduleSync();
 }
+function scheduleSync(delay = SYNC_DELAY_MS) {
+  if (!cloudReady()) return;
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(() => cloudSync(), delay);
+}
+
+// 要同步的資料：Apple 健康的設定（密碼、網址）與活動資料每台裝置各自保留
+const syncable = (d) => { const { health, ...rest } = d; return rest; };
+const stable = (v) => JSON.stringify(v, (k, x) => (x && typeof x === 'object' && !Array.isArray(x) ? Object.fromEntries(Object.keys(x).sort().map((key) => [key, x[key]])) : x));
+const same = (a, b) => stable(a) === stable(b);
+lastSnap = stable(syncable(S));
+const byId = (arr) => new Map((Array.isArray(arr) ? arr : []).filter((x) => x && x.id != null).map((x) => [String(x.id), x]));
+
+function loadBase() {
+  try { return JSON.parse(localStorage.getItem(BASE_KEY) || 'null'); } catch { return null; }
+}
+function saveBase(data) {
+  try { localStorage.setItem(BASE_KEY, JSON.stringify(data)); } catch { /* 空間不足就下次全部重新比對 */ }
+}
+
+// 三方合併一組「key → 值」；localWins 決定兩邊都改過同一筆時用誰
+function merge3(base, local, remote, localWins) {
+  const out = new Map();
+  const keys = new Set([...local.keys(), ...remote.keys(), ...base.keys()]);
+  for (const k of keys) {
+    const b = base.get(k), l = local.get(k), r = remote.get(k);
+    let v;
+    if (same(l, r)) v = l;
+    else if (same(l, b)) v = r; // 只有雲端改過（含刪除）
+    else if (same(r, b)) v = l; // 只有本機改過（含刪除）
+    else v = localWins ? l : r; // 兩邊都改過
+    if (v !== undefined) out.set(k, v);
+  }
+  return out;
+}
+const mapOf = (o) => new Map(Object.entries(o && typeof o === 'object' ? o : {}));
+
+function mergeData(base, local, remote, localWins) {
+  base = base || {};
+  const out = {};
+  const keys = new Set([...Object.keys(local), ...Object.keys(remote)]);
+  for (const k of keys) {
+    if (k === 'entries' || k === 'customFoods') {
+      const m = merge3(byId(base[k]), byId(local[k]), byId(remote[k]), localWins);
+      // 保持原本順序：先照本機，再接上雲端新增的
+      const order = [...byId(local[k]).keys(), ...byId(remote[k]).keys()];
+      out[k] = [...new Set(order)].filter((id) => m.has(id)).map((id) => m.get(id));
+    } else if (k === 'weights' || k === 'waists' || k === 'profile') {
+      out[k] = Object.fromEntries(merge3(mapOf(base[k]), mapOf(local[k]), mapOf(remote[k]), localWins));
+    } else {
+      const v = merge3(new Map([[k, base[k]]]), new Map([[k, local[k]]]), new Map([[k, remote[k]]]), localWins).get(k);
+      if (v !== undefined) out[k] = v;
+    }
+  }
+  return out;
+}
+
+function syncError(e) {
+  return /Load failed|Failed to fetch|NetworkError/i.test(e.message) ? '連不到雲端（沒有網路或接收端還沒部署）' : e.message;
+}
+
+// 抓雲端最新 → 合併 → 有差異就套用到本機、有本機改動就上傳
+function cloudSync({ keepalive = false } = {}) {
+  if (!cloudReady()) return Promise.resolve(false);
+  if (syncing) { cloud.dirty && scheduleSync(); return syncing; }
+  clearTimeout(syncTimer);
+  syncing = (async () => {
+    try {
+      const got = await cloudFetch('/backup');
+      const remote = got?.data ? syncable(got.data) : null;
+      const base = loadBase();
+      const local = syncable(S);
+      const localWins = !got?.savedAt || (!!cloud.changedAt && cloud.changedAt >= got.savedAt);
+      const merged = remote ? mergeData(base, local, remote, localWins) : local;
+
+      if (!same(merged, local)) {
+        S = { ...S, ...merged };
+        for (const k of Object.keys(local)) if (!(k in merged)) delete S[k];
+        dataVer++;
+        try { localStorage.setItem(KEY, JSON.stringify(S)); } catch { /* 忽略 */ }
+        lastSnap = stable(syncable(S)); // 從雲端拿來的不算本機改動
+        refreshAfterSync();
+      }
+
+      let savedAt = got?.savedAt || null;
+      const needPush = !remote || !same(merged, remote);
+      // 雲端沒有資料、這台也是空的就不上傳，避免把空白蓋上去
+      if (needPush && (hasData(merged) || (base && hasData(base)))) {
+        const body = JSON.stringify({ ...merged, health: { ...S.health, token: '' } });
+        const res = await fetch(cloudUrl('/backup'), {
+          method: 'PUT', headers: { ...cloudHeaders(), 'Content-Type': 'application/json' }, body,
+          keepalive: keepalive && body.length < 60000, // keepalive 有 64KB 上限
+        });
+        if (res.status === 401) throw new Error('同步密碼不對');
+        if (res.status === 404) throw new Error('接收端還沒更新，請到 GitHub 重跑一次「Deploy health worker」');
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        savedAt = (await res.json()).savedAt;
+      }
+      saveBase(merged);
+      // 同步途中又有新的改動（S 跟剛合併的不同）就保持 dirty，等一下再同步一次
+      cloud.dirty = !same(syncable(S), merged);
+      cloud.lastBackupAt = savedAt || cloud.lastBackupAt;
+      cloud.lastSyncAt = new Date().toISOString();
+      cloud.error = '';
+    } catch (e) {
+      cloud.error = syncError(e);
+    }
+    saveCloud();
+    updateCloudStatus();
+    return !cloud.error;
+  })().finally(() => {
+    syncing = null;
+    if (cloud.dirty && !cloud.error) scheduleSync();
+  });
+  return syncing;
+}
+
+// 同步拿到新資料後重畫；正在輸入的話先不重畫，免得打到一半的字被洗掉
+let renderPending = false;
+function refreshAfterSync() {
+  const a = document.activeElement;
+  if (a && a.closest && a.closest('#app') && /^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName)) { renderPending = true; return; }
+  renderPending = false;
+  render();
+}
+document.addEventListener('focusout', () => setTimeout(() => {
+  if (!renderPending) return;
+  const a = document.activeElement;
+  if (a && a.closest && a.closest('#app') && /^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName)) return;
+  renderPending = false;
+  render();
+}, 0));
 
 function cloudStatusText() {
-  if (!S.health?.token) return '請先在上方「⌚ Apple 健康同步」產生並儲存同步密碼，雲端備份也使用同一組。';
-  if (!cloud.enabled) return '自動備份已關閉。';
+  if (!S.health?.token) return '請先在上方「⌚ Apple 健康同步」產生並儲存同步密碼，雲端同步也使用同一組。';
+  if (!cloud.enabled) return '自動同步已關閉。';
   if (cloud.error) return '⚠️ ' + cloud.error;
-  return cloud.lastBackupAt ? `✅ 最後備份：${new Date(cloud.lastBackupAt).toLocaleString('zh-TW')}` : '還沒有備份，記錄任何東西後約 30 秒會自動備份。';
+  const t = cloud.lastSyncAt || cloud.lastBackupAt;
+  return t ? `✅ 最後同步：${new Date(t).toLocaleString('zh-TW')}` : '還沒有同步。';
 }
 function updateCloudStatus() {
   const el = document.querySelector('#cloud-status');
@@ -143,7 +261,8 @@ function applyRestore(data) {
   localStorage.setItem(KEY, JSON.stringify({ ...data, health: { ...(data.health || {}), ...keep } }));
   S = load();
   dataVer++;
-  backupDirty = false;
+  lastSnap = stable(syncable(S));
+  markChanged(); // 還原的內容當作這台最新的改動，同步到其他裝置
   render();
 }
 
@@ -152,28 +271,13 @@ async function cloudRestore(date) {
     const got = await cloudFetch(date ? `/backup?date=${date}` : '/backup');
     if (!got?.data) { toast('雲端沒有這份備份'); return; }
     const c = got.data;
-    const msg = `要用雲端備份（${new Date(got.savedAt).toLocaleString('zh-TW')}，${c.entries.length} 筆飲食紀錄、${(c.customFoods || []).length} 個自訂食物）覆蓋這台裝置目前的資料嗎？`;
+    const msg = `要用雲端備份（${new Date(got.savedAt).toLocaleString('zh-TW')}，${c.entries.length} 筆飲食紀錄、${(c.customFoods || []).length} 個自訂食物）覆蓋目前的資料嗎？其他裝置也會跟著變成這個版本。`;
     if (!confirm(msg)) return;
     applyRestore(c);
     toast('已從雲端還原 ✅');
   } catch (e) {
     toast('還原失敗：' + e.message);
   }
-}
-
-// 手機裡沒有資料、但雲端有備份時，主動詢問要不要還原（換手機、資料被清掉時）
-async function offerRestoreIfEmpty() {
-  if (!cloudReady() || hasLocalData()) return;
-  try {
-    const got = await cloudFetch('/backup');
-    const c = got?.data;
-    if (!c || !(c.entries?.length || c.customFoods?.length || Object.keys(c.weights || {}).length)) return;
-    if (hasLocalData()) return;
-    if (confirm(`這台裝置目前沒有資料，但雲端有備份（${new Date(got.savedAt).toLocaleString('zh-TW')}，${c.entries.length} 筆飲食紀錄、${(c.customFoods || []).length} 個自訂食物）。要還原嗎？`)) {
-      applyRestore(c);
-      toast('已從雲端還原 ✅');
-    }
-  } catch { /* 靜默失敗，不打擾使用者 */ }
 }
 
 let cur = today();
@@ -748,12 +852,12 @@ function renderSettings() {
     </form>
 
     <div class="card">
-      <div class="card-head"><h3>☁️ 雲端備份</h3><span class="muted">${cloudReady() ? '自動備份中' : '未啟用'}</span></div>
-      <p class="muted">資料會自動備份到你自己的 Cloudflare 接收端：每次記錄後約 30 秒上傳一次，關掉 App 時也會上傳，並保留最近 30 天、每天一份快照。換手機、資料被清掉，或 Safari 和主畫面兩邊要同步時，都可以從這裡還原。</p>
-      <label class="check"><input type="checkbox" id="cloud-enabled" ${cloud.enabled ? 'checked' : ''} /> 自動備份到雲端</label>
+      <div class="card-head"><h3>☁️ 雲端同步・備份</h3><span class="muted">${cloudReady() ? '同步中' : '未啟用'}</span></div>
+      <p class="muted">手機、電腦（還有 Safari 和主畫面 App）只要填同一組網址和同步密碼，就會看到同一份資料：記錄後幾秒內上傳，打開或切回 App 時抓最新的，開著不動也每 2 分鐘更新一次。雲端另外保留最近 30 天、每天一份快照，可以隨時還原。</p>
+      <label class="check"><input type="checkbox" id="cloud-enabled" ${cloud.enabled ? 'checked' : ''} /> 自動同步</label>
       <p class="note num" id="cloud-status">${esc(cloudStatusText())}</p>
       <div class="btn-row start">
-        <button type="button" class="btn primary" data-action="cloud-backup">立即備份</button>
+        <button type="button" class="btn primary" data-action="cloud-backup">立即同步</button>
         <button type="button" class="btn" data-action="cloud-list">從雲端還原…</button>
       </div>
       <div id="cloud-restore" class="list"></div>
@@ -810,18 +914,18 @@ function renderSettings() {
       token: String(fd.get('token') || '').trim(),
     });
     save();
-    if (!S.health.enabled) { S.health.error = ''; save(); renderSettings(); toast('已儲存（Apple 健康同步未啟用）'); offerRestoreIfEmpty(); return; }
+    if (!S.health.enabled) { S.health.error = ''; save(); renderSettings(); toast('已儲存（Apple 健康同步未啟用）'); cloudSync(); return; }
     if (!S.health.token) { toast('請先填同步密碼'); return; }
     $('#health-status').textContent = '測試連線中…';
     const ok = await fetchHealth(true);
     renderSettings();
-    offerRestoreIfEmpty();
+    cloudSync();
     toast(ok ? '連線成功 ✅' : '連線失敗，請看下面的錯誤訊息');
   });
   $('#cloud-enabled').addEventListener('change', (e) => {
     cloud.enabled = e.target.checked;
     saveCloud();
-    if (cloud.enabled) { backupDirty = true; cloudBackup(); }
+    if (cloud.enabled) cloudSync();
     updateCloudStatus();
   });
   $('#import-file').addEventListener('change', async (e) => {
@@ -834,7 +938,8 @@ function renderSettings() {
       localStorage.setItem(KEY, JSON.stringify(data));
       S = load();
       dataVer++;
-      scheduleBackup();
+      lastSnap = stable(syncable(S));
+      markChanged();
       render();
       toast('已匯入備份');
     } catch (err) {
@@ -1335,10 +1440,9 @@ document.addEventListener('click', (e) => {
     case 'edit-entry': { const en = S.entries.find((x) => x.id === d.id); if (en) openQty(en.food, en); break; }
     case 'quick-add': openCustom('quick'); break;
     case 'cloud-backup':
-      if (!cloudReady()) { toast(S.health?.token ? '請先勾選「自動備份到雲端」' : '請先設定同步密碼'); break; }
-      if (!hasLocalData()) { toast('目前沒有資料可以備份'); break; }
-      $('#cloud-status').textContent = '備份中…';
-      cloudBackup({ force: true }).then((ok) => toast(ok ? '已備份到雲端 ✅' : '備份失敗：' + cloud.error));
+      if (!cloudReady()) { toast(S.health?.token ? '請先勾選「自動同步」' : '請先設定同步密碼'); break; }
+      $('#cloud-status').textContent = '同步中…';
+      cloudSync().then((ok) => toast(ok ? '已同步 ✅' : '同步失敗：' + cloud.error));
       break;
     case 'cloud-list': {
       if (!S.health?.token) { toast('請先設定同步密碼'); break; }
@@ -1465,7 +1569,8 @@ setInterval(() => fetchHealth(true), HEALTH_REFRESH_MS);
 // 跨午夜後重新開啟 App 時，自動跳到今天
 let lastToday = today();
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'hidden' && backupDirty) cloudBackup({ keepalive: true }); // 離開 App 前把還沒上傳的改動送出
+  if (document.visibilityState === 'hidden' && cloud.dirty) cloudSync({ keepalive: true }); // 離開 App 前把還沒上傳的改動送出
+  if (document.visibilityState === 'visible') cloudSync(); // 切回 App 就抓其他裝置的最新資料
   if (document.visibilityState === 'visible') fetchHealth(); // 從捷徑切回來時更新
   if (document.visibilityState === 'visible' && today() !== lastToday) {
     if (cur === lastToday) cur = today();
@@ -1482,7 +1587,10 @@ window.addEventListener('hashchange', () => {
 if (VIEWS.includes(location.hash.slice(1))) view = location.hash.slice(1);
 render();
 fetchHealth();
-offerRestoreIfEmpty();
+cloudSync();
+// App 一直開著（例如電腦）也定時抓其他裝置的改動
+setInterval(() => { if (document.visibilityState === 'visible') cloudSync(); }, SYNC_POLL_MS);
+window.addEventListener('online', () => cloudSync());
 
 // ================= 自動更新 =================
 // 每次打開或切回 App 都檢查 sw.js 有沒有新版；有的話新版接手後自動重新載入一次。

@@ -53,7 +53,7 @@ const defaults = () => ({
   customFoods: [],
   recents: [],
   // Apple 健康同步（iPhone 捷徑 → apo-health worker → 這裡）
-  health: { enabled: false, endpoint: 'https://apo-health.pohsienbrianli.workers.dev', token: '', days: {}, updatedAt: null, fetchedAt: null, error: '' },
+  health: { enabled: false, endpoint: 'https://apo-health.pohsienbrianli.workers.dev', token: '', days: {}, steps: {}, distance: {}, updatedAt: null, fetchedAt: null, error: '' },
 });
 
 function load() {
@@ -288,6 +288,12 @@ function healthLine(a) {
   else if (!a.ready) text = `⌚ 今日活動 <b>${r0(a.todayKcal)}</b> kcal · 正在建立你的平常活動量（${a.n}/${BASELINE_MIN} 天）`;
   else if (a.bonus > 0) text = `⌚ 今日活動 <b>${r0(a.todayKcal)}</b> kcal，比平常多 ${r0(a.extra)} → 額度 <b class="plus">+${a.bonus}</b> kcal <span class="muted">${upd}</span>`;
   else text = `⌚ 今日活動 <b>${r0(a.todayKcal)}</b> kcal（平常約 ${r0(a.baseline)}） <span class="muted">${upd}</span>`;
+  // 步數與步行＋跑步距離（只顯示，不影響熱量計算）
+  const st = h.steps?.[cur];
+  let km = h.distance?.[cur];
+  if (km > 200) km /= 1000; // 捷徑回傳公尺時換算成公里
+  const walk = [st != null && `🚶 ${r0(st).toLocaleString()} 步`, km != null && `${r1(km)} km`].filter(Boolean).join(' · ');
+  if (walk) text += `<div class="walk-line">${walk}</div>`;
   return `<div class="health-line"><div class="grow">${text}</div>
     <a class="icon-btn" href="shortcuts://run-shortcut?name=${encodeURIComponent(HEALTH_SHORTCUT)}" aria-label="執行捷徑立即同步" title="立即同步">🔄</a></div>`;
 }
@@ -341,7 +347,7 @@ function renderHome() {
         </div>
       </div>
       <div class="hero-stats num">
-        <div><small>${act?.bonus ? `今日額度（活動 +${act.bonus}）` : isAutoAdjusted() ? '目標（已自動修正）' : '目標'}</small><b>${goal.toLocaleString()}</b></div>
+        <div><small>${act?.bonus ? `今日額度（+${act.bonus}）` : isAutoAdjusted() ? '目標（已自動修正）' : '目標'}</small><b>${goal.toLocaleString()}</b></div>
         <div><small>已吃</small><b>${eaten.toLocaleString()}</b></div>
         <div><small>進度</small><b>${goal ? r0((eaten / goal) * 100) : 0}%</b></div>
       </div>
@@ -1300,6 +1306,8 @@ async function fetchHealth(force = false) {
     if (!res.ok) throw new Error('接收端回應 ' + res.status);
     const data = await res.json();
     h.days = data.days || {};
+    h.steps = data.steps || {};
+    h.distance = data.distance || {};
     h.updatedAt = data.updatedAt || null;
     h.fetchedAt = Date.now();
     h.error = '';

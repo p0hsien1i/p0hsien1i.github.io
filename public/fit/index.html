@@ -3,12 +3,12 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>飯糰 Fit</title>
+  <title>Brian as the Chef</title>
   <meta name="description" content="記錄每天吃了什麼、攝取多少熱量，資料只存在你的裝置上。" />
   <meta name="robots" content="noindex" />
   <meta name="theme-color" content="#e10600" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-title" content="飯糰 Fit" />
+  <meta name="apple-mobile-web-app-title" content="Brian as the Chef" />
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="icon" href="icon.svg" type="image/svg+xml" />
   <link rel="apple-touch-icon" href="icon-192.png" />
@@ -16,10 +16,13 @@
 </head>
 <body>
   <header class="topbar">
-    <button class="icon-btn" data-action="prev-day" aria-label="前一天">‹</button>
-    <button class="date-btn" data-action="pick-date"><span id="date-label">今天</span></button>
-    <input type="date" id="date-input" class="visually-hidden" tabindex="-1" aria-hidden="true" />
-    <button class="icon-btn" data-action="next-day" aria-label="後一天">›</button>
+    <h1 class="brand"><img src="icon.svg" alt="" width="24" height="24" /><span>Brian <em>as the</em> Chef</span></h1>
+    <div class="datebar">
+      <button class="icon-btn" data-action="prev-day" aria-label="前一天">‹</button>
+      <button class="date-btn" data-action="pick-date"><span id="date-label">今天</span></button>
+      <input type="date" id="date-input" class="visually-hidden" tabindex="-1" aria-hidden="true" />
+      <button class="icon-btn" data-action="next-day" aria-label="後一天">›</button>
+    </div>
   </header>
 
   <main id="app">

@@ -3,8 +3,10 @@
  *
  *   POST /sync   捷徑上傳每日活動能量（純文字，一行一天：`2026-09-28=523.4`；也接受 JSON）
  *   GET  /data   App 讀取 { days: { 'YYYY-MM-DD': kcal }, updatedAt }
+ *   GET  /off/search?q=…、/off/product/<條碼>
+ *                Open Food Facts 轉接（瀏覽器直連被限流／擋掉時的備援；只接受本站來源，結果快取一天）
  *
- * 兩個端點都要帶 `Authorization: Bearer <SYNC_TOKEN>`。
+ * /sync、/data 要帶 `Authorization: Bearer <SYNC_TOKEN>`。
  * 需要的設定：SYNC_TOKEN（Secret）、KV binding HEALTH（部署 workflow 會自動建立）。
  */
 
@@ -35,6 +37,11 @@ export default {
 
     const url = new URL(request.url);
     if (url.pathname === "/") return json({ ok: true, service: "apo-health" });
+
+    if (url.pathname.startsWith("/off/") && request.method === "GET") {
+      if (!ALLOWED_ORIGINS.includes(origin)) return json({ error: "forbidden" }, 403);
+      return offProxy(url, cors);
+    }
 
     if (!env.SYNC_TOKEN) return json({ error: "server not configured (SYNC_TOKEN missing)" }, 500);
     const auth = request.headers.get("Authorization") || "";
@@ -99,4 +106,58 @@ function safeEqual(a, b) {
   let diff = 0;
   for (let i = 0; i < x.length; i++) diff |= x[i] ^ y[i];
   return diff === 0;
+}
+
+// ---------- Open Food Facts 轉接 ----------
+const OFF_FIELDS = "code,product_name,product_name_zh,brands,nutriments,serving_quantity";
+const OFF_UA = "BrianAsTheChef/1.0 (+https://p0hsien1i.github.io/fit/)";
+
+async function offProxy(url, cors) {
+  let targets;
+  const m = url.pathname.match(/^\/off\/product\/(\d{6,14})$/);
+  if (m) {
+    targets = [`https://world.openfoodfacts.org/api/v2/product/${m[1]}.json?fields=${OFF_FIELDS}`];
+  } else if (url.pathname === "/off/search") {
+    const q = (url.searchParams.get("q") || "").trim().slice(0, 80);
+    if (!q) return new Response(JSON.stringify({ error: "missing q" }), { status: 400, headers: { "Content-Type": "application/json", ...cors } });
+    const enc = encodeURIComponent(q);
+    targets = [
+      `https://search.openfoodfacts.org/search?q=${enc}&page_size=25&langs=zh,en&fields=${OFF_FIELDS}`,
+      `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${enc}&search_simple=1&action=process&json=1&page_size=25&fields=${OFF_FIELDS}`,
+    ];
+  } else {
+    return new Response(JSON.stringify({ error: "not found" }), { status: 404, headers: { "Content-Type": "application/json", ...cors } });
+  }
+
+  const cache = caches.default;
+  const cacheKey = new Request(`https://off-cache.internal${url.pathname}?${url.searchParams}`);
+  const hit = await cache.match(cacheKey);
+  if (hit) return withCors(hit, cors);
+
+  let last = "upstream failed";
+  for (const target of targets) {
+    try {
+      const res = await fetch(target, { headers: { "User-Agent": OFF_UA, Accept: "application/json" } });
+      const type = res.headers.get("Content-Type") || "";
+      if ((res.ok || res.status === 404) && type.includes("json")) {
+        const body = await res.text();
+        const out = new Response(body, {
+          status: res.status,
+          headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "public, max-age=86400" },
+        });
+        if (res.ok) await cache.put(cacheKey, out.clone());
+        return withCors(out, cors);
+      }
+      last = `HTTP ${res.status}`;
+    } catch (e) {
+      last = e.message;
+    }
+  }
+  return new Response(JSON.stringify({ error: last }), { status: 502, headers: { "Content-Type": "application/json", ...cors } });
+}
+
+function withCors(res, cors) {
+  const r = new Response(res.body, res);
+  for (const [k, v] of Object.entries(cors)) r.headers.set(k, v);
+  return r;
 }

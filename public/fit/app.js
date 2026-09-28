@@ -649,33 +649,97 @@ function showLocalResults(q) {
       <div class="grow"><div class="name">＋ 自己新增「${esc(q.trim())}」</div><div class="sub">找不到或數字不對？照營養標示自己建立</div></div></button>`;
 }
 
+// ---------- Open Food Facts：多個來源依序嘗試 ----------
+// 1) 新版搜尋服務 search.openfoodfacts.org（支援網頁直接呼叫）
+// 2) 舊版 cgi/search.pl（流量限制嚴，被擋時 Safari 只會顯示 Load failed）
+// 3) 經過自己的 Cloudflare 接收端轉接（伺服器端連線，不受瀏覽器限制；需先部署 apo-health）
+const OFF_FIELDS = 'code,product_name,product_name_zh,brands,nutriments,serving_quantity';
+const offProxy = () => (S.health.endpoint ? S.health.endpoint.replace(/\/+$/, '') + '/off' : '');
+
+async function fetchJson(url, ms = 8000) {
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), ms);
+  try {
+    const res = await fetch(url, { signal: ctl.signal });
+    if (!res.ok && res.status !== 404) throw new Error('HTTP ' + res.status);
+    return await res.json();
+  } catch (e) {
+    throw new Error(e.name === 'AbortError' ? '逾時' : e.message);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function firstWorking(urls) {
+  const errors = [];
+  for (const url of urls.filter(Boolean)) {
+    try { return await fetchJson(url); } catch (e) { errors.push(e.message); }
+  }
+  throw new Error(errors.at(-1) || '沒有可用的來源');
+}
+
+function friendlyError(msg) {
+  if (/Load failed|Failed to fetch|NetworkError/i.test(msg)) return '連不到線上資料庫（可能是網路不穩或對方暫時限流）';
+  if (/429/.test(msg)) return '線上資料庫暫時限流，請稍後再試';
+  if (msg === '逾時') return '線上資料庫回應太慢';
+  return msg;
+}
+
+async function offSearch(q) {
+  const enc = encodeURIComponent(q);
+  const proxy = offProxy();
+  const data = await firstWorking([
+    `https://search.openfoodfacts.org/search?q=${enc}&page_size=25&langs=zh,en&fields=${OFF_FIELDS}`,
+    `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${enc}&search_simple=1&action=process&json=1&page_size=25&fields=${OFF_FIELDS}`,
+    proxy && `${proxy}/search?q=${enc}`,
+  ]);
+  return data.products || data.hits || [];
+}
+
+async function offProduct(code) {
+  const proxy = offProxy();
+  const data = await firstWorking([
+    `https://world.openfoodfacts.org/api/v2/product/${code}.json?fields=${OFF_FIELDS}`,
+    proxy && `${proxy}/product/${code}`,
+  ]);
+  return data?.status === 1 || data?.status === 'success' ? data.product : null;
+}
+
 async function searchOnline(q) {
   const seq = ++searchSeq;
   const box = $('#online-results');
   if (!box) return;
   box.innerHTML = '<div class="list-section">Open Food Facts 線上資料庫</div><p class="empty">搜尋中…</p>';
   try {
-    const url = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(q)}&search_simple=1&action=process&json=1&page_size=25&fields=code,product_name,product_name_zh,brands,nutriments,serving_quantity`;
-    const res = await fetch(url);
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    const data = await res.json();
+    const products = await offSearch(q);
     if (seq !== searchSeq) return;
-    lists.online = (data.products || []).map(offToFood).filter(Boolean);
+    lists.online = products.map(offToFood).filter(Boolean);
     box.innerHTML = '<div class="list-section">Open Food Facts 線上資料庫</div>' +
       (lists.online.length ? lists.online.map((f, i) => foodRow(f, i, 'online')).join('') : '<p class="empty">線上沒有找到，可以換個關鍵字，或用下面的按鈕自己新增。</p>');
   } catch (e) {
-    if (seq === searchSeq) box.innerHTML = `<p class="empty">線上搜尋失敗（${esc(e.message)}），請檢查網路。</p>`;
+    if (seq === searchSeq) box.innerHTML = `<p class="empty">線上搜尋失敗：${esc(friendlyError(e.message))}。上面的常見食物和「自己新增」都可以照常使用。</p>`;
   }
 }
 
+// 名稱可能是字串，也可能是各語言的物件（新版搜尋服務）
+function pickText(v) {
+  if (!v) return '';
+  if (typeof v === 'string') return v;
+  if (Array.isArray(v)) return pickText(v[0]);
+  if (typeof v === 'object') return v.zh || v['zh-TW'] || v.main || v.en || Object.values(v).find((x) => typeof x === 'string') || '';
+  return String(v);
+}
+
 function offToFood(p) {
+  if (!p) return null;
   const n = p.nutriments || {};
   let kcal = n['energy-kcal_100g'];
   if (kcal == null && n['energy_100g'] != null) kcal = n['energy_100g'] / 4.184;
-  const name = (p.product_name_zh || p.product_name || '').trim();
+  const name = (pickText(p.product_name_zh) || pickText(p.product_name)).trim();
   if (kcal == null || !name) return null;
+  const brand = Array.isArray(p.brands) ? pickText(p.brands) : String(p.brands || '').split(',')[0];
   return {
-    id: 'off:' + p.code, name, brand: (p.brands || '').split(',')[0].trim(), grams: 100,
+    id: 'off:' + p.code, name, brand: brand.trim(), grams: 100,
     defaultGrams: Number(p.serving_quantity) > 0 ? Number(p.serving_quantity) : 100,
     serving: '100 g', kcal: +kcal, p: +(n.proteins_100g || 0), c: +(n.carbohydrates_100g || 0), f: +(n.fat_100g || 0),
   };
@@ -974,9 +1038,7 @@ async function lookupBarcode(code) {
   setScanHint(`查詢 ${code}…`);
   const createBtn = `<button class="chip" data-action="new-custom" data-barcode="${code}">＋ 自己建立這個食物</button>`;
   try {
-    const res = await fetch(`https://world.openfoodfacts.org/api/v2/product/${code}.json?fields=code,product_name,product_name_zh,brands,nutriments,serving_quantity`);
-    const data = res.ok || res.status === 404 ? await res.json() : null;
-    const food = data?.status === 1 ? offToFood(data.product) : null;
+    const food = offToFood(await offProduct(code));
     if (!food) {
       setScanHint(`資料庫裡沒有條碼 ${code} 的營養資料。照包裝上的營養標示自己建立一次，之後掃這個條碼就會直接找到。`, createBtn);
       return;
@@ -984,7 +1046,7 @@ async function lookupBarcode(code) {
     $('#dlg-scan').close();
     openQty({ ...food, barcode: code });
   } catch (e) {
-    setScanHint(`查詢失敗（${e.message}）。可以檢查網路後再試，或直接自己建立這個食物。`, createBtn);
+    setScanHint(`查詢失敗：${friendlyError(e.message)}。可以稍後再試，或直接自己建立這個食物（之後掃這個條碼就會直接找到）。`, createBtn);
   }
 }
 $('#barcode-form').addEventListener('submit', (e) => { e.preventDefault(); lookupBarcode($('#barcode-input').value); });

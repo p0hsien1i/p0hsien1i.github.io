@@ -1,8 +1,10 @@
 /**
  * apo-health — 接收 iPhone 捷徑送來的 Apple 健康「活動能量」，給飯糰 Fit 讀取
  *
- *   POST /sync   捷徑上傳每日活動能量（純文字，一行一天：`2026-09-28=523.4`；也接受 JSON）
- *   GET  /data   App 讀取 { days: { 'YYYY-MM-DD': kcal }, updatedAt }
+ *   POST /sync?type=active|steps|distance
+ *                捷徑上傳每日資料（純文字，一行一天：`2026-09-28=523.4`；也接受 JSON）。
+ *                type 省略＝活動能量（kcal）；steps＝步數；distance＝步行＋跑步距離（km）
+ *   GET  /data   App 讀取 { days: {日期: kcal}, steps: {日期: 步}, distance: {日期: km}, updatedAt, updated: {...} }
  *   GET  /off/search?q=…、/off/product/<條碼>
  *                Open Food Facts 轉接（瀏覽器直連被限流／擋掉時的備援；只接受本站來源，結果快取一天）
  *
@@ -14,7 +16,12 @@ const ALLOWED_ORIGINS = [
   "https://p0hsien1i.github.io",
   "http://localhost:4321", // astro dev / preview
 ];
-const KEY = "active-energy";
+// 每種資料一個 KV key；max 用來擋掉明顯錯誤的數字
+const TYPES = {
+  active: { key: "active-energy", max: 20000 },
+  steps: { key: "steps", max: 300000 },
+  distance: { key: "distance", max: 100000 }, // km；若手機回傳公尺，App 端會換算
+};
 const KEEP_DAYS = 120;
 
 export default {
@@ -49,25 +56,37 @@ export default {
     if (!safeEqual(token, env.SYNC_TOKEN)) return json({ error: "unauthorized" }, 401);
 
     if (url.pathname === "/data" && request.method === "GET") {
-      const stored = (await env.HEALTH.get(KEY, "json")) || { days: {}, updatedAt: null };
-      return json(stored);
+      const [active, steps, distance] = await Promise.all(
+        ["active", "steps", "distance"].map((t) => env.HEALTH.get(TYPES[t].key, "json")),
+      );
+      const updated = { active: active?.updatedAt || null, steps: steps?.updatedAt || null, distance: distance?.updatedAt || null };
+      return json({
+        days: active?.days || {},
+        steps: steps?.days || {},
+        distance: distance?.days || {},
+        updatedAt: [updated.active, updated.steps, updated.distance].filter(Boolean).sort().at(-1) || null,
+        updated,
+      });
     }
 
     if (url.pathname === "/sync" && request.method === "POST") {
       const text = await request.text();
       if (text.length > 300000) return json({ error: "payload too large" }, 413);
-      const incoming = parse(text);
+      const type = url.searchParams.get("type") || "active";
+      const cfg = TYPES[type];
+      if (!cfg) return json({ error: "unknown type (use active, steps or distance)" }, 400);
+      const incoming = parse(text, cfg.max);
       const dates = Object.keys(incoming);
       if (!dates.length) return json({ error: "no valid lines (expected e.g. 2026-09-28=523.4)" }, 400);
 
-      const stored = (await env.HEALTH.get(KEY, "json")) || { days: {} };
+      const stored = (await env.HEALTH.get(cfg.key, "json")) || { days: {} };
       const days = { ...stored.days, ...incoming };
       // 只保留最近 KEEP_DAYS 天
       const keep = Object.keys(days).sort().slice(-KEEP_DAYS);
       const trimmed = Object.fromEntries(keep.map((d) => [d, days[d]]));
       const updatedAt = new Date().toISOString();
-      await env.HEALTH.put(KEY, JSON.stringify({ days: trimmed, updatedAt }));
-      return json({ ok: true, received: dates.length, latest: dates.sort().at(-1), updatedAt });
+      await env.HEALTH.put(cfg.key, JSON.stringify({ days: trimmed, updatedAt }));
+      return json({ ok: true, type, received: dates.length, latest: dates.sort().at(-1), updatedAt });
     }
 
     return json({ error: "not found" }, 404);
@@ -75,14 +94,14 @@ export default {
 };
 
 // 解析「YYYY-MM-DD=數字」（一行一筆；也接受「:」、空白、tab 分隔，或 JSON {days:{...}} / {"2026-09-28": 523}）
-function parse(text) {
+function parse(text, max = 20000) {
   const out = {};
   const add = (date, value) => {
     const m = String(date).match(/(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
     const n = parseFloat(String(value).replace(/,/g, "").replace(/[^\d.]/g, ""));
-    if (!m || !Number.isFinite(n) || n < 0 || n > 20000) return;
+    if (!m || !Number.isFinite(n) || n < 0 || n > max) return;
     const d = `${m[1]}-${m[2].padStart(2, "0")}-${m[3].padStart(2, "0")}`;
-    out[d] = (out[d] || 0) + Math.round(n * 10) / 10; // 同一天多筆（例如不同來源的樣本）就加總
+    out[d] = Math.round(((out[d] || 0) + n) * 100) / 100; // 同一天多筆（例如不同來源的樣本）就加總
   };
   const trimmed = text.trim();
   if (trimmed.startsWith("{")) {
